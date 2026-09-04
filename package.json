@@ -1,0 +1,19 @@
+{
+  "name": "bowling-domain",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Bowling Architecture Baseline (ARCH-001) — domain and synchronization foundations",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.8.0"
+  }
+}
