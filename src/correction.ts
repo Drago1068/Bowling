@@ -2,6 +2,28 @@ import type { Correction, EntityType } from "./entities.ts";
 import { newCorrectionId } from "./identity/ids.ts";
 import { newEntityMetadata } from "./metadata.ts";
 
+/** Raised when a correction targets an entity that does not exist. */
+export class TargetEntityNotFoundError extends Error {
+  readonly entityType: EntityType;
+  readonly entityId: string;
+  constructor(entityType: EntityType, entityId: string) {
+    super(`correction target not found: ${entityType}/${entityId}`);
+    this.name = "TargetEntityNotFoundError";
+    this.entityType = entityType;
+    this.entityId = entityId;
+  }
+}
+
+/** Raised when a correction record with the same id already exists. */
+export class DuplicateCorrectionError extends Error {
+  readonly correctionId: string;
+  constructor(correctionId: string) {
+    super(`correction already recorded: ${correctionId}`);
+    this.name = "DuplicateCorrectionError";
+    this.correctionId = correctionId;
+  }
+}
+
 /**
  * Correction contract.
  *

@@ -1,43 +1,55 @@
 import { randomBytes } from "node:crypto";
 
 /**
- * RFC 9562 UUIDv7.
+ * RFC 9562 UUIDv7 with process-local monotonicity (counter method).
  *
  * UUIDv7 is time-ordered (48-bit Unix millisecond timestamp in the high bits)
  * and thus lexicographically sortable by creation time, while remaining
- * offline-generatable and globally unique. This satisfies the ARCH-001 identity
- * requirement without relying on a central sequential allocator such as
- * PostgreSQL serials.
+ * offline-generatable and globally unique without a central sequential
+ * allocator.
  *
- * Layout (128 bits):
- *   [0..47]  unix_ts_ms  (big-endian milliseconds)
- *   [48..51] version (0111 = 7)
- *   [52..63] rand_a      (12-bit, monotonic-within-millisecond counter seeded randomly)
- *   [64..65] variant (10, RFC 4122)
- *   [66..127] rand_b      (62-bit random)
+ * Bit layout (128 bits, MSB-first):
+ *   [127..80] unix_ts_ms  (48-bit milliseconds)
+ *   [79..76]  version     (0111 = 7, fixed)
+ *   [75..64]  rand_a      (12 bits, top 12 bits of the monotonic tail)
+ *   [63..62]  variant     (10, RFC 4122, fixed)
+ *   [61..0]   rand_b      (62 bits, low 62 bits of the monotonic tail)
+ *
+ * Monotonicity contract (normative for this generator):
+ *   - The full 128-bit value never decreases across successive calls in a
+ *     process. Version and variant nibbles are constant, so monotonicity is
+ *     reduced to a single 74-bit "tail" counter anchored to a non-decreasing
+ *     timestamp.
+ *   - A higher supplied timestamp advances `lastTs`; a fresh random tail is
+ *     seeded so ids are not predictable.
+ *   - An equal or REGRESSED (lower) timestamp does NOT move the logical clock
+ *     backwards: the tail is incremented instead. If the 74-bit tail would
+ *     overflow (equivalent to >2^74 ids in one millisecond — no 12-bit wrap),
+ *     the logical timestamp advances by one and the tail resets.
+ *   - There is therefore no silent counter wrap and no backwards timestamp.
  */
 
-const VERSION: number = 0x7;
+const VERSION = 7n;
+const VARIANT = 2n; // binary 10
 
-let lastTsMs = -1;
-let randA = 0;
+const TAIL_BITS = 74n;
+const TAIL_MAX = (1n << TAIL_BITS) - 1n;
+const TS_MAX = (1n << 48n) - 1n;
 
-function nextRandA(ts: number): number {
-  if (ts === lastTsMs) {
-    randA = (randA + 1) & 0xfff;
-  } else {
-    lastTsMs = ts;
-    // Seed with a fresh random value so ids within a new millisecond are not
-    // predictable from the previous second's counter.
-    randA = randomBytes(2).readUInt16BE(0) & 0xfff;
+let lastTs = -1n;
+let lastTail = -1n;
+
+function randomTail(): bigint {
+  const buf = randomBytes(10);
+  let r = 0n;
+  for (const b of buf) {
+    r = (r << 8n) | BigInt(b);
   }
-  return randA;
+  return r & TAIL_MAX;
 }
 
-function format(bytes: Uint8Array): string {
-  const hex = Array.from(bytes)
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
+function valueToUuid(value: bigint): string {
+  const hex = value.toString(16).padStart(32, "0");
   return (
     `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-` +
     `${hex.slice(16, 20)}-${hex.slice(20)}`
@@ -45,35 +57,57 @@ function format(bytes: Uint8Array): string {
 }
 
 /**
- * Generate a UUIDv7 string. Accepts an optional millisecond timestamp for
- * deterministic testing; defaults to the current wall clock.
+ * Generate a UUIDv7 string. Accepts an optional millisecond timestamp primarily
+ * for deterministic testing; when omitted the current wall clock is used.
  */
 export function uuidv7(nowMs: number = Date.now()): string {
-  const ts = Math.max(0, nowMs);
+  const requested = BigInt(Math.max(0, Math.floor(nowMs)));
 
-  const bytes = new Uint8Array(16);
-  // 48-bit big-endian timestamp.
-  let t = ts;
-  for (let i = 5; i >= 0; i -= 1) {
-    bytes[i] = t & 0xff;
-    t = Math.floor(t / 256);
+  let ts: bigint;
+  let tail: bigint;
+
+  if (requested > lastTs) {
+    ts = requested;
+    tail = randomTail();
+  } else {
+    ts = lastTs;
+    tail = lastTail + 1n;
+    if (tail > TAIL_MAX) {
+      ts = (lastTs + 1n) > TS_MAX ? TS_MAX : lastTs + 1n;
+      tail = 0n;
+    }
   }
+  lastTs = ts;
+  lastTail = tail;
 
-  const ra = nextRandA(ts);
-  bytes[6] = (VERSION << 4) | ((ra >>> 8) & 0x0f);
-  bytes[7] = ra & 0xff;
+  const value =
+    (ts << 80n) |
+    (VERSION << 76n) |
+    ((tail >> 62n) << 64n) |
+    (VARIANT << 62n) |
+    (tail & ((1n << 62n) - 1n));
 
-  bytes.set(randomBytes(8), 8);
-  // Set RFC 4122 variant bits: top two bits of byte 8 = 10.
-  bytes[8] = (bytes[8]! & 0x3f) | 0x80;
+  return valueToUuid(value);
+}
 
-  return format(bytes);
+/** Reset the process-local monotonic generator state (test/edge use only). */
+export function resetUuidv7MonotonicState(): void {
+  lastTs = -1n;
+  lastTail = -1n;
 }
 
 /** True if the string parses as a valid UUIDv7. */
 export function isUuidv7(value: string): boolean {
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(value)) {
+  if (
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(value)
+  ) {
     return false;
   }
-  return value.charAt(14) === "7" && (value.charAt(19) === "8" || value.charAt(19) === "9" || value.charAt(19) === "a" || value.charAt(19) === "b");
+  return (
+    value.charAt(14) === "7" &&
+    (value.charAt(19) === "8" ||
+      value.charAt(19) === "9" ||
+      value.charAt(19) === "a" ||
+      value.charAt(19) === "b")
+  );
 }

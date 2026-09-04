@@ -11,3 +11,8 @@ export {
   type LocalMutationResult,
   type LocalOperation,
 } from "./localMutation.ts";
+export {
+  applyCorrection,
+  type ApplyCorrectionInput,
+  type ApplyCorrectionResult,
+} from "./applyCorrection.ts";

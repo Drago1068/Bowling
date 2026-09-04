@@ -19,6 +19,13 @@ time-ordered and globally unique. Namespaced with strong identity brands
 (`UserId`, `GameId`, etc.) that are erased at runtime. Sequential backend IDs
 are never used as domain identity.
 
+The generator implements RFC 9562 "monotonicity within a process" (counter
+method): a 74-bit monotonic tail anchored to a non-decreasing 48-bit logical
+timestamp. A regressed or repeated wall-clock timestamp never moves the logical
+clock backwards, and >4096 ids in one millisecond spill into the next logical
+millisecond rather than wrapping a 12-bit counter. Result: lexically monotonic,
+globally unique UUIDv7.
+
 ### D2 — Optimistic entity versioning
 
 `entity_version` starts at `1` and increments exactly once per accepted semantic
@@ -73,12 +80,17 @@ Legal transitions:
 LOCAL_ONLY       -> QUEUED, REJECTED
 QUEUED           -> SUBMITTED, REJECTED
 SUBMITTED        -> ACCEPTED, RETRYABLE_ERROR, CONFLICT, REJECTED
-ACCEPTED         -> CONFIRMED, RETRYABLE_ERROR
+ACCEPTED         -> CONFIRMED
 RETRYABLE_ERROR  -> QUEUED, REJECTED
 CONFLICT         -> QUEUED, REJECTED
 CONFIRMED        -> (terminal)
 REJECTED         -> (terminal)
 ```
+
+`ACCEPTED` is terminal-until-acknowledged: it must not revert to uncertainty
+about NAS commitment (no `ACCEPTED -> RETRYABLE_ERROR`). Client acknowledgement
+failure is recovered by re-acknowledging/reconciling toward `CONFIRMED` while
+the accepted server state is preserved.
 
 ### D8 — Persistence contracts (not a framework)
 
@@ -99,12 +111,18 @@ SQLite WAL journal.
 A local mutation writes the canonical entity and its outbox entry in one
 transaction; there is no state where either is durably ambiguous.
 
-### D11 — Correction is append-only audit data
+### D11 — Correction is append-only, atomically applied audit data
 
 A `Correction` records target entity type/id, `prior_entity_version`,
 `corrected_representation`, optional `change` delta, `reason`, `actor`,
 `origin_device_id`, timestamps. Corrections never delete or silently overwrite
 history; the original representation remains traceable.
+
+Corrections are applied atomically: append the immutable correction record,
+apply the corrected representation (preserving immutable id/type/origin/
+created_at), increment the target `entity_version` exactly once, set
+`data_quality=CORRECTED`, update `updated_at`, and enqueue a `CORRECT` outbox
+mutation — all in one transaction. Any failure rolls back the whole operation.
 
 ## Consequences
 

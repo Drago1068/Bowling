@@ -1,4 +1,4 @@
-export { uuidv7, isUuidv7 } from "./uuidv7.ts";
+export { uuidv7, isUuidv7, resetUuidv7MonotonicState } from "./uuidv7.ts";
 export type {
   Branded,
   UserId,

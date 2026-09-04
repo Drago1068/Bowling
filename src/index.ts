@@ -37,6 +37,8 @@ export {
 } from "./versioning.ts";
 export {
   createCorrection,
+  TargetEntityNotFoundError,
+  DuplicateCorrectionError,
   type CorrectionOptions,
 } from "./correction.ts";
 export * from "./identity/index.ts";

@@ -33,17 +33,23 @@ export function isSyncState(value: unknown): value is SyncState {
  *   LOCAL_ONLY       -> QUEUED, REJECTED
  *   QUEUED           -> SUBMITTED, REJECTED
  *   SUBMITTED        -> ACCEPTED, RETRYABLE_ERROR, CONFLICT, REJECTED
- *   ACCEPTED         -> CONFIRMED, RETRYABLE_ERROR
+ *   ACCEPTED         -> CONFIRMED
  *   RETRYABLE_ERROR  -> QUEUED, REJECTED
  *   CONFLICT         -> QUEUED, REJECTED
  *   CONFIRMED        -> (terminal)
  *   REJECTED         -> (terminal)
+ *
+ * ACCEPTED is a terminal-until-acknowledged state: once the NAS has durably
+ * committed the mutation, the entry must not revert to uncertainty about server
+ * commitment (no ACCEPTED -> RETRYABLE_ERROR). Client acknowledgement failure
+ * is recovered by retrying acknowledgement/reconciliation (ACCEPTED -> CONFIRMED)
+ * while the accepted server state is preserved.
  */
 const TRANSITIONS: Readonly<Record<SyncState, readonly SyncState[]>> = {
   LOCAL_ONLY: ["QUEUED", "REJECTED"],
   QUEUED: ["SUBMITTED", "REJECTED"],
   SUBMITTED: ["ACCEPTED", "RETRYABLE_ERROR", "CONFLICT", "REJECTED"],
-  ACCEPTED: ["CONFIRMED", "RETRYABLE_ERROR"],
+  ACCEPTED: ["CONFIRMED"],
   CONFIRMED: [],
   RETRYABLE_ERROR: ["QUEUED", "REJECTED"],
   CONFLICT: ["QUEUED", "REJECTED"],

@@ -79,10 +79,13 @@ function apply(
     } else {
       persisted = {
         ...entity,
-        entity_version: nextVersion(existing.entity_version),
+        id: existing.id,
+        entity_type: existing.entity_type,
+        origin_device_id: existing.origin_device_id,
         created_at: existing.created_at,
+        entity_version: nextVersion(existing.entity_version),
         updated_at: nowIso,
-      };
+      } as CanonicalEntity;
       entities.upsert(persisted);
       opType = "UPDATE";
     }
