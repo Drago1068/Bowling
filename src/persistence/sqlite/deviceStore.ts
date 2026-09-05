@@ -1,13 +1,13 @@
-import type { DatabaseSync } from "node:sqlite";
 import type { DeviceIdentity, DeviceIdentityStore } from "../../identity/device.ts";
 import { createDeviceIdentity } from "../../identity/device.ts";
+import type { SqliteDriver } from "./driver.ts";
 
 /**
  * Durable device identity backed by a single-row SQLite table. The id is
  * created once and reused on every subsequent load, remaining stable across
  * process restarts and application upgrades.
  */
-export function createDeviceStore(db: DatabaseSync): DeviceIdentityStore {
+export function createDeviceStore(db: SqliteDriver): DeviceIdentityStore {
   const getStmt = db.prepare(
     "SELECT device_id, created_at FROM device_identity WHERE singleton = 1",
   );

@@ -1,4 +1,3 @@
-import type { DatabaseSync } from "node:sqlite";
 import type { CanonicalEntity, Correction } from "../../entities.ts";
 import {
   DuplicateCorrectionError,
@@ -16,6 +15,8 @@ import { createOutboxStore } from "./outboxStore.ts";
 import type { SyncOutboxStore } from "../contracts.ts";
 import { createCorrectionStore } from "./correctionStore.ts";
 import type { CorrectionStore } from "../contracts.ts";
+import type { SqliteDriver } from "./driver.ts";
+import type { PersistenceFaults } from "./faults.ts";
 
 export interface ApplyCorrectionInput {
   correction: Correction;
@@ -40,13 +41,18 @@ export interface ApplyCorrectionResult {
  * can become durable.
  */
 export function applyCorrection(
-  db: DatabaseSync,
+  db: SqliteDriver,
   input: ApplyCorrectionInput,
+  faults?: PersistenceFaults,
 ): ApplyCorrectionResult {
   const entities = createEntityStore(db);
   const outbox = createOutboxStore(db);
   const corrections = createCorrectionStore(db);
-  return transaction(db, () => apply(entities, corrections, outbox, input));
+  return transaction(
+    db,
+    () => apply(entities, corrections, outbox, input, faults),
+    faults,
+  );
 }
 
 function apply(
@@ -54,6 +60,7 @@ function apply(
   corrections: CorrectionStore,
   outbox: SyncOutboxStore,
   input: ApplyCorrectionInput,
+  faults?: PersistenceFaults,
 ): ApplyCorrectionResult {
   const now = input.now ?? new Date();
   const nowIso = now.toISOString();
@@ -94,6 +101,7 @@ function apply(
   } as CanonicalEntity;
 
   corrections.record(correction);
+  faults?.afterCorrectionRecord?.();
   entities.upsert(next);
 
   const envelope = buildEnvelope({

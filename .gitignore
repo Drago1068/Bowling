@@ -7,3 +7,7 @@ coverage/
 *.sqlite
 *.sqlite3
 *.db
+apps/mobile/.expo/
+apps/mobile/dist-android/
+apps/mobile/dist-ios/
+apps/mobile/web-build/

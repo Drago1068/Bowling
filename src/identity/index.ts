@@ -1,4 +1,5 @@
 export { uuidv7, isUuidv7, resetUuidv7MonotonicState } from "./uuidv7.ts";
+export { assertUuidv7RuntimeSupport } from "./runtime.ts";
 export type {
   Branded,
   UserId,

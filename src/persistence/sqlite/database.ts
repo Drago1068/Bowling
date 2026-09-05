@@ -1,55 +1,52 @@
-import { DatabaseSync } from "node:sqlite";
-import { MIGRATIONS } from "./migrations.ts";
+import type { SqliteDriver } from "./driver.ts";
+import type { PersistenceFaults } from "./faults.ts";
+import {
+  applyMigrations,
+  type MigrateOptions,
+  type MigrationOutcome,
+} from "./migrate.ts";
 
 /**
- * Open (or reopen) the SQLite database and apply pending migrations.
- * `:memory:` yields an in-process database (per-session); a filesystem path
- * yields a durable database that survives process restarts.
+ * Apply the crash-safe SQLite pragmas required by ARCH-001 (foreign keys + WAL).
+ * WAL is what makes a commit durable across process restart and forced
+ * termination; it is not optional for the reopen/recovery contract.
  */
-export function openDatabase(filename: string = ":memory:"): DatabaseSync {
-  const db = new DatabaseSync(filename);
-  db.exec("PRAGMA foreign_keys = ON;");
-  db.exec("PRAGMA journal_mode = WAL;");
-  migrate(db);
-  return db;
+export function initializePragmas(driver: SqliteDriver): void {
+  driver.exec("PRAGMA foreign_keys = ON;");
+  driver.exec("PRAGMA journal_mode = WAL;");
 }
 
-function migrate(db: DatabaseSync): void {
-  db.exec(
-    "CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL)",
-  );
-  const applied = new Set<number>();
-  const rows = db.prepare("SELECT version FROM schema_migrations").all();
-  for (const row of rows as Array<{ version: number }>) {
-    applied.add(row.version);
-  }
-  const insert = db.prepare(
-    "INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)",
-  );
-  for (const migration of MIGRATIONS) {
-    if (applied.has(migration.version)) continue;
-    db.exec("BEGIN IMMEDIATE");
-    try {
-      db.exec(migration.sql);
-      insert.run(migration.version, new Date().toISOString());
-      db.exec("COMMIT");
-    } catch (err) {
-      db.exec("ROLLBACK");
-      throw err;
-    }
-  }
+/**
+ * Open an already-constructed portable driver: pragmas then migrations.
+ * Does not recreate the database on failure; the caller inspects the outcome.
+ */
+export function prepareDatabase(
+  driver: SqliteDriver,
+  migrateOptions?: MigrateOptions,
+): MigrationOutcome {
+  initializePragmas(driver);
+  return applyMigrations(driver, migrateOptions);
 }
 
 /**
  * Run `fn` inside a single SQLite transaction. On any throw the transaction is
- * rolled back so partial writes are never left durable. Synchronous by design
- * (node:sqlite); crash-safe via SQLite's WAL journal.
+ * rolled back so partial writes are never left durable. Synchronous by design;
+ * crash-safe via SQLite's WAL journal.
+ *
+ * The UI/application layer must not be told a mutation is durably saved until
+ * this function returns successfully (COMMIT succeeded).
  */
-export function transaction<T>(db: DatabaseSync, fn: () => T): T {
+export function transaction<T>(
+  db: SqliteDriver,
+  fn: () => T,
+  faults?: PersistenceFaults,
+): T {
+  faults?.beforeBegin?.();
   db.exec("BEGIN IMMEDIATE");
   try {
     const result = fn();
     db.exec("COMMIT");
+    faults?.afterCommit?.();
     return result;
   } catch (err) {
     try {

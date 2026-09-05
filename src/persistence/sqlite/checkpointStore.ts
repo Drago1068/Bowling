@@ -1,7 +1,7 @@
-import type { DatabaseSync } from "node:sqlite";
 import type { SyncCheckpointStore } from "../contracts.ts";
+import type { SqliteDriver } from "./driver.ts";
 
-export function createCheckpointStore(db: DatabaseSync): SyncCheckpointStore {
+export function createCheckpointStore(db: SqliteDriver): SyncCheckpointStore {
   const getStmt = db.prepare("SELECT value FROM sync_checkpoint WHERE key = ?");
   const setStmt = db.prepare(
     `INSERT INTO sync_checkpoint (key, value, updated_at)

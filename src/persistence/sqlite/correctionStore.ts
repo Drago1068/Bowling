@@ -1,5 +1,5 @@
-import type { DatabaseSync } from "node:sqlite";
 import type { Correction, EntityType } from "../../entities.ts";
+import type { SqliteDriver } from "./driver.ts";
 import type { CorrectionId } from "../../identity/ids.ts";
 import { isDataQuality } from "../../quality.ts";
 import type { CorrectionStore } from "../contracts.ts";
@@ -46,7 +46,7 @@ function correctionFromRow(row: CorrectionRow): Correction {
  * inserted, never updated in place, so the original entity history remains
  * traceable through the version lineage plus each correction record.
  */
-export function createCorrectionStore(db: DatabaseSync): CorrectionStore {
+export function createCorrectionStore(db: SqliteDriver): CorrectionStore {
   const insertStmt = db.prepare(
     `INSERT INTO corrections
        (id, target_entity_type, target_entity_id, prior_entity_version,

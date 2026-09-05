@@ -1,8 +1,8 @@
-import type { DatabaseSync } from "node:sqlite";
 import type { CanonicalEntity, EntityType } from "../../entities.ts";
 import type { CanonicalEntityStore } from "../contracts.ts";
+import type { SqliteDriver } from "./driver.ts";
 
-export function createEntityStore(db: DatabaseSync): CanonicalEntityStore {
+export function createEntityStore(db: SqliteDriver): CanonicalEntityStore {
   const getStmt = db.prepare(
     "SELECT payload FROM canonical_entities WHERE entity_type = ? AND id = ? AND archived = 0",
   );

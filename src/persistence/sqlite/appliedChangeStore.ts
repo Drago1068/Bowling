@@ -1,8 +1,8 @@
-import type { DatabaseSync } from "node:sqlite";
 import type { EntityType } from "../../entities.ts";
 import type { AppliedChange, AppliedChangeStore } from "../contracts.ts";
+import type { SqliteDriver } from "./driver.ts";
 
-export function createAppliedChangeStore(db: DatabaseSync): AppliedChangeStore {
+export function createAppliedChangeStore(db: SqliteDriver): AppliedChangeStore {
   const insertStmt = db.prepare(
     `INSERT OR IGNORE INTO applied_changes
        (change_id, device_id, entity_type, entity_id, entity_version, payload_hash, applied_at)

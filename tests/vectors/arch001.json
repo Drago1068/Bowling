@@ -1,0 +1,85 @@
+{
+  "uuid_format": {
+    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+    "version_nibble": "7",
+    "variant_nibbles": ["8", "9", "a", "b"]
+  },
+  "canonicalize": [
+    {
+      "name": "object-key-order-irrelevant",
+      "a": { "b": 1, "a": { "d": 2, "c": 3 } },
+      "b": { "a": { "c": 3, "d": 2 }, "b": 1 },
+      "canonical": "{\"a\":{\"c\":3,\"d\":2},\"b\":1}"
+    },
+    {
+      "name": "array-order-preserved",
+      "a": [1, 2],
+      "b": [1, 2],
+      "canonical": "[1,2]"
+    },
+    {
+      "name": "nested-recursive-sort",
+      "a": { "z": { "m": 1, "a": [{ "b": 2, "a": 1 }] }, "y": 0 },
+      "b": { "y": 0, "z": { "a": [{ "a": 1, "b": 2 }], "m": 1 } },
+      "canonical": "{\"y\":0,\"z\":{\"a\":[{\"a\":1,\"b\":2}],\"m\":1}}"
+    }
+  ],
+  "sha256": [
+    {
+      "name": "empty-string",
+      "utf8": "",
+      "hex": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "abc",
+      "utf8": "abc",
+      "hex": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+    },
+    {
+      "name": "canonical-object",
+      "utf8": "{\"a\":{\"c\":3,\"d\":2},\"b\":1}",
+      "hex": "78d48859c3252943aab7306f76c80f3f07783582e05ab8f944ce0696f2dbfc67"
+    }
+  ],
+  "payload_hash": [
+    {
+      "name": "key-order-irrelevant",
+      "payload_a": { "x": 1, "y": [1, 2] },
+      "payload_b": { "y": [1, 2], "x": 1 }
+    }
+  ],
+  "entity_metadata": {
+    "initial_schema_version": 1,
+    "initial_entity_version": 1,
+    "data_quality_values": ["COMPLETE", "PARTIAL", "CORRECTED", "INFERRED", "UNKNOWN"]
+  },
+  "local_mutation": {
+    "create_expected_entity_version": 0,
+    "create_resulting_entity_version": 1,
+    "outbox_initial_state": "QUEUED"
+  },
+  "correction": {
+    "data_quality": "CORRECTED",
+    "operation_type": "CORRECT",
+    "version_increment": 1
+  },
+  "sync_states": [
+    "LOCAL_ONLY",
+    "QUEUED",
+    "SUBMITTED",
+    "ACCEPTED",
+    "CONFIRMED",
+    "RETRYABLE_ERROR",
+    "CONFLICT",
+    "REJECTED"
+  ],
+  "sync_presentation": [
+    "saved_locally",
+    "waiting_to_sync",
+    "syncing",
+    "synced",
+    "sync_temporarily_unavailable",
+    "conflict_requires_resolution",
+    "rejected_invalid_mutation"
+  ]
+}

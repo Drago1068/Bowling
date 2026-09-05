@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { sha256Utf8Hex } from "../platform/sha256.ts";
 
 /**
  * Deterministic canonical serialization for sync payload hashing.
@@ -81,7 +81,7 @@ export function canonicalize(payload: unknown): string {
 
 /** SHA-256 (hex) digest of the canonical serialization. */
 export function hashCanonicalJson(canonicalJson: string): string {
-  return createHash("sha256").update(canonicalJson, "utf8").digest("hex");
+  return sha256Utf8Hex(canonicalJson);
 }
 
 /** Deterministic payload hash: SHA-256 over the canonical serialization. */

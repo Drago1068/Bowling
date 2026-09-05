@@ -1,5 +1,5 @@
-import type { DatabaseSync } from "node:sqlite";
 import type { EntityType } from "../../entities.ts";
+import type { SqliteDriver } from "./driver.ts";
 import type { MutationEnvelope, OperationType } from "../../sync/envelope.ts";
 import type { SyncState } from "../../sync/stateMachine.ts";
 import { isSyncState } from "../../sync/stateMachine.ts";
@@ -47,7 +47,7 @@ function entryFromRow(row: OutboxRow): OutboxEntry {
   };
 }
 
-export function createOutboxStore(db: DatabaseSync): SyncOutboxStore {
+export function createOutboxStore(db: SqliteDriver): SyncOutboxStore {
   const insertStmt = db.prepare(
     `INSERT INTO sync_outbox
        (submission_id, protocol_version, device_id, entity_type, entity_id,

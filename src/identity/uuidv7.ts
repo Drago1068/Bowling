@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { getSecureRandomBytes } from "../platform/random.ts";
 
 /**
  * RFC 9562 UUIDv7 with process-local monotonicity (counter method).
@@ -40,7 +40,7 @@ let lastTs = -1n;
 let lastTail = -1n;
 
 function randomTail(): bigint {
-  const buf = randomBytes(10);
+  const buf = getSecureRandomBytes(10);
   let r = 0n;
   for (const b of buf) {
     r = (r << 8n) | BigInt(b);

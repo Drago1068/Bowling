@@ -1,4 +1,3 @@
-import type { DatabaseSync } from "node:sqlite";
 import type { CanonicalEntity } from "../../entities.ts";
 import {
   buildEnvelope,
@@ -11,6 +10,8 @@ import { createEntityStore } from "./entityStore.ts";
 import type { CanonicalEntityStore } from "../contracts.ts";
 import { createOutboxStore } from "./outboxStore.ts";
 import type { SyncOutboxStore } from "../contracts.ts";
+import type { SqliteDriver } from "./driver.ts";
+import type { PersistenceFaults } from "./faults.ts";
 
 export type LocalOperation = "CREATE" | "UPDATE" | "DELETE";
 
@@ -32,20 +33,24 @@ export interface LocalMutationResult {
  * Apply a local mutation atomically: the canonical entity write and its outbox
  * entry are committed in a single transaction. If either fails, neither becomes
  * durable, so a partially-durable ambiguous state is impossible.
+ *
+ * The caller must not treat the mutation as saved until this function returns.
  */
 export function applyLocalMutation(
-  db: DatabaseSync,
+  db: SqliteDriver,
   input: LocalMutationInput,
+  faults?: PersistenceFaults,
 ): LocalMutationResult {
   const entities = createEntityStore(db);
   const outbox = createOutboxStore(db);
-  return transaction(db, () => apply(entities, outbox, input));
+  return transaction(db, () => apply(entities, outbox, input, faults), faults);
 }
 
 function apply(
   entities: CanonicalEntityStore,
   outbox: SyncOutboxStore,
   input: LocalMutationInput,
+  faults?: PersistenceFaults,
 ): LocalMutationResult {
   const now = input.now ?? new Date();
   const nowIso = now.toISOString();
@@ -91,6 +96,8 @@ function apply(
     }
   }
 
+  faults?.afterCanonicalWrite?.();
+
   const payload = opType === "DELETE" ? { entity_type: entity.entity_type, entity_id: entity.id } : persisted;
   const envelope = buildEnvelope({
     submission_id: input.submissionId,
@@ -104,5 +111,6 @@ function apply(
   });
 
   outbox.enqueue(envelope);
+  faults?.afterOutboxInsert?.();
   return { envelope, entity: persisted };
 }
