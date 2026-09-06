@@ -136,21 +136,23 @@ export function validatePushRequest(raw: unknown): ValidationOutcome {
     return validateCorrection(req);
   }
 
+  if (req.operation_type === "DELETE") {
+    return validateDelete(req);
+  }
+
   const p = req.payload;
-  if (req.operation_type !== "DELETE") {
-    const schemaIssue = validateSchemaVersion(p);
-    if (schemaIssue) {
-      if (typeof p.schema_version === "number") {
-        return {
-          ok: false,
-          kind: "unsupported_schema",
-          entity_type: req.entity_type,
-          supported: [...SUPPORTED_SCHEMA_VERSIONS],
-          received: p.schema_version as number,
-        };
-      }
-      return reject(REASON_CODES.MISSING_METADATA, schemaIssue, sid);
+  const schemaIssue = validateSchemaVersion(p);
+  if (schemaIssue) {
+    if (typeof p.schema_version === "number") {
+      return {
+        ok: false,
+        kind: "unsupported_schema",
+        entity_type: req.entity_type,
+        supported: [...SUPPORTED_SCHEMA_VERSIONS],
+        received: p.schema_version as number,
+      };
     }
+    return reject(REASON_CODES.MISSING_METADATA, schemaIssue, sid);
   }
 
   if (req.operation_type === "CREATE") {
@@ -170,6 +172,33 @@ export function validatePushRequest(raw: unknown): ValidationOutcome {
     return reject(REASON_CODES.INVALID_BOWLING_FACTS, bowlingIssue, sid);
   }
 
+  return { ok: true, request: req as PushRequest & { validated: true } };
+}
+
+function validateDelete(req: PushRequest): ValidationOutcome {
+  const p = req.payload as PlainObj;
+  const sid = req.submission_id;
+  const pt = p.entity_type;
+  const peid = p.entity_id;
+
+  if (pt === undefined) {
+    return reject(REASON_CODES.MISSING_METADATA, "DELETE payload must include entity_type", sid);
+  }
+  if (typeof pt !== "string" || !isEntityType(pt)) {
+    return reject(REASON_CODES.UNKNOWN_ENTITY_TYPE, "DELETE payload entity_type invalid", sid);
+  }
+  if (peid === undefined) {
+    return reject(REASON_CODES.MISSING_METADATA, "DELETE payload must include entity_id", sid);
+  }
+  if (typeof peid !== "string" || !isUuidv7(peid)) {
+    return reject(REASON_CODES.INVALID_UUID, "DELETE payload entity_id must be a valid UUIDv7", sid);
+  }
+  if (pt !== req.entity_type) {
+    return reject(REASON_CODES.ENTITY_TYPE_MISMATCH, "DELETE payload entity_type does not match request entity_type", sid);
+  }
+  if (peid !== req.entity_id) {
+    return reject(REASON_CODES.ENTITY_ID_MISMATCH, "DELETE payload entity_id does not match request entity_id", sid);
+  }
   return { ok: true, request: req as PushRequest & { validated: true } };
 }
 

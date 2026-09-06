@@ -151,19 +151,13 @@ function applyCreate(tx: Tx, req: ValidatedPushRequest, now: Date, incomingHash:
 function applyUpdate(tx: Tx, req: ValidatedPushRequest, now: Date, incomingHash: string, log: Logger): Promise<PushResult> {
   return (async () => {
     const existing = await entityRepo.getForUpdate(tx, req.entity_type, req.entity_id);
-    if (!existing) return rejectMissing(req, log);
+    if (!existing) return rejectPersisted(tx, req, now, incomingHash, REASON_CODES.ENTITY_NOT_FOUND, "target entity not found", null, log);
     if (existing.entity_version !== req.expected_entity_version) {
       return recordConflict(tx, req, existing, now, incomingHash, log, "stale version");
     }
     const immutableIssue = checkImmutable(req.payload as PlainObj, existing, req);
     if (immutableIssue) {
-      await auditRepo.insert(tx, {
-        audit_id: uuidv7(), happened_at: now, actor: req.device_id, action: "push",
-        entity_type: req.entity_type, entity_id: req.entity_id, submission_id: req.submission_id,
-        outcome: "REJECTED", prior_version: existing.entity_version, result_version: null,
-        metadata: { reason: immutableIssue },
-      });
-      return { status: "REJECTED", reason_code: REASON_CODES.IMMUTABLE_FIELD_CHANGED, message: immutableIssue, submission_id: req.submission_id } satisfies RejectedResult;
+      return rejectPersisted(tx, req, now, incomingHash, REASON_CODES.IMMUTABLE_FIELD_CHANGED, immutableIssue, existing.entity_version, log);
     }
 
     const payload = req.payload as PlainObj;
@@ -198,7 +192,7 @@ function applyUpdate(tx: Tx, req: ValidatedPushRequest, now: Date, incomingHash:
 function applyCorrect(tx: Tx, req: ValidatedPushRequest, now: Date, incomingHash: string, log: Logger): Promise<PushResult> {
   return (async () => {
     const existing = await entityRepo.getForUpdate(tx, req.entity_type, req.entity_id);
-    if (!existing) return rejectMissing(req, log);
+    if (!existing) return rejectPersisted(tx, req, now, incomingHash, REASON_CODES.ENTITY_NOT_FOUND, "target entity not found", null, log);
     if (existing.entity_version !== req.expected_entity_version) {
       return recordConflict(tx, req, existing, now, incomingHash, log, "stale version");
     }
@@ -236,7 +230,7 @@ function applyCorrect(tx: Tx, req: ValidatedPushRequest, now: Date, incomingHash
 function applyArchive(tx: Tx, req: ValidatedPushRequest, now: Date, incomingHash: string, log: Logger): Promise<PushResult> {
   return (async () => {
     const existing = await entityRepo.getForUpdate(tx, req.entity_type, req.entity_id);
-    if (!existing) return rejectMissing(req, log);
+    if (!existing) return rejectPersisted(tx, req, now, incomingHash, REASON_CODES.ENTITY_NOT_FOUND, "target entity not found", null, log);
     if (existing.entity_version !== req.expected_entity_version) {
       return recordConflict(tx, req, existing, now, incomingHash, log, "stale version");
     }
@@ -278,9 +272,31 @@ function checkImmutable(payload: PlainObj, existing: CanonicalEntityRow, req: Va
   return null;
 }
 
-function rejectMissing(req: ValidatedPushRequest, log: Logger): RejectedResult {
-  log.warn("rejected", { submission_id: req.submission_id, outcome: "REJECTED", reason: "target not found" });
-  return { status: "REJECTED", reason_code: REASON_CODES.INVALID_CORRECTION, message: "target entity not found", submission_id: req.submission_id };
+async function rejectPersisted(
+  tx: Tx, req: ValidatedPushRequest, now: Date, incomingHash: string,
+  reasonCode: string, message: string, priorVersion: number | null, log: Logger,
+): Promise<RejectedResult> {
+  const result: RejectedResult = {
+    status: "REJECTED",
+    reason_code: reasonCode,
+    message,
+    submission_id: req.submission_id,
+  };
+  await auditRepo.insert(tx, {
+    audit_id: uuidv7(), happened_at: now, actor: req.device_id, action: "push",
+    entity_type: req.entity_type, entity_id: req.entity_id, submission_id: req.submission_id,
+    outcome: "REJECTED", prior_version: priorVersion, result_version: null,
+    metadata: { reason: reasonCode },
+  });
+  await idempotencyRepo.insert(tx, {
+    submission_id: req.submission_id, device_id: req.device_id, payload_hash: incomingHash,
+    operation_type: req.operation_type, entity_type: req.entity_type, entity_id: req.entity_id,
+    received_at: now, result_status: "REJECTED", result_entity_version: null,
+    result_change_cursor: null, result_committed_at: now,
+    result_payload: result as unknown as PlainObj,
+  });
+  log.warn("rejected", { submission_id: req.submission_id, outcome: "REJECTED", reason: reasonCode });
+  return result;
 }
 
 async function recordConflict(

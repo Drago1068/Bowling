@@ -11,6 +11,7 @@ import {
   makeCorrection,
   makeArchive,
   makeFrameCreate,
+  rollPayload,
   testConfig,
   truncateAll,
   query,
@@ -537,4 +538,146 @@ test("Frame.frame_number validation: 1..10 accepted, 0/11/12 rejected", async ()
       assert.equal(result.reason_code, "INVALID_BOWLING_FACTS");
     }
   }
+});
+
+test("missing-target UPDATE rejection replays after target appears", async () => {
+  const targetId = uuidv7();
+  const submitDevice = uuidv7();
+  const createdAt = new Date().toISOString();
+  const sid = uuidv7();
+
+  const updateReq = makeRollUpdate(targetId, uuidv7(), createdAt, submitDevice, 6, 1, sid);
+
+  const first = await app.push(updateReq);
+  assert.equal(first.status, "REJECTED");
+  if (first.status === "REJECTED") assert.equal(first.reason_code, "ENTITY_NOT_FOUND");
+
+  // Target appears via a separate submission.
+  const createPayload = rollPayload(targetId, submitDevice);
+  const createReq = {
+    protocol_version: 1,
+    submission_id: uuidv7(),
+    device_id: submitDevice,
+    entity_type: "Roll",
+    entity_id: targetId,
+    operation_type: "CREATE",
+    expected_entity_version: 0,
+    payload: createPayload,
+    payload_hash: hashPayload(createPayload),
+  };
+  assert.equal((await app.push(createReq)).status, "ACCEPTED");
+
+  // Retry exact same UPDATE S -> must replay original rejection.
+  const retry = await app.push(updateReq);
+  assert.equal(retry.status, "REJECTED");
+  if (retry.status === "REJECTED") assert.equal(retry.reason_code, "ENTITY_NOT_FOUND");
+
+  // Canonical X unchanged by retry (still v1, pinfall 10).
+  const rows = await query<{ entity_version: number; pinfall: string }>(
+    "SELECT entity_version, payload ->> 'pinfall' AS pinfall FROM canonical_entities WHERE entity_id = $1",
+    [targetId],
+  );
+  assert.equal(rows[0]!.entity_version, 1);
+  assert.equal(rows[0]!.pinfall, "10");
+
+  // Single semantic rejection audit for S.
+  const audits = await query<{ n: string }>(
+    "SELECT count(*)::text AS n FROM audit_log WHERE submission_id = $1 AND outcome = 'REJECTED'",
+    [sid],
+  );
+  assert.equal(Number(audits[0]!.n), 1);
+});
+
+test("missing-target UPDATE: same submission id + changed payload -> SUBMISSION_ID_COLLISION", async () => {
+  const targetId = uuidv7();
+  const sid = uuidv7();
+  const createdAt = new Date().toISOString();
+  const device = uuidv7();
+
+  const a = makeRollUpdate(targetId, uuidv7(), createdAt, device, 6, 1, sid);
+  const b = makeRollUpdate(targetId, uuidv7(), createdAt, device, 7, 1, sid);
+
+  assert.equal((await app.push(a)).status, "REJECTED");
+  const result = await app.push(b);
+  assert.equal(result.status, "REJECTED");
+  if (result.status === "REJECTED") assert.equal(result.reason_code, "SUBMISSION_ID_COLLISION");
+});
+
+test("immutable-field rejection is idempotent", async () => {
+  const r = makeRollCreate();
+  await app.push(r.request);
+
+  const sid = uuidv7();
+  // Tamper origin_device_id (different device).
+  const tamperedPayload = rollPayload(r.entity_id, uuidv7(), { created_at: r.created_at });
+  const tampered = {
+    protocol_version: 1,
+    submission_id: sid,
+    device_id: uuidv7(),
+    entity_type: "Roll",
+    entity_id: r.entity_id,
+    operation_type: "UPDATE",
+    expected_entity_version: 1,
+    payload: tamperedPayload,
+    payload_hash: hashPayload(tamperedPayload),
+  };
+
+  const first = await app.push(tampered);
+  assert.equal(first.status, "REJECTED");
+  if (first.status === "REJECTED") assert.equal(first.reason_code, "IMMUTABLE_FIELD_CHANGED");
+
+  const retry = await app.push(tampered);
+  assert.equal(retry.status, "REJECTED");
+  if (retry.status === "REJECTED") assert.equal(retry.reason_code, "IMMUTABLE_FIELD_CHANGED");
+
+  // No duplicate semantic mutation/audit: entity still v1, single rejection audit.
+  const rows = await query<{ entity_version: number }>(
+    "SELECT entity_version FROM canonical_entities WHERE entity_id = $1",
+    [r.entity_id],
+  );
+  assert.equal(rows[0]!.entity_version, 1);
+
+  const audits = await query<{ n: string }>(
+    "SELECT count(*)::text AS n FROM audit_log WHERE submission_id = $1 AND outcome = 'REJECTED'",
+    [sid],
+  );
+  assert.equal(Number(audits[0]!.n), 1);
+});
+
+test("DELETE payload identity must match envelope", async () => {
+  const created = makeRollCreate();
+  await app.push(created.request);
+
+  const del = (payload: Record<string, unknown>, entityId = created.entity_id) => ({
+    protocol_version: 1,
+    submission_id: uuidv7(),
+    device_id: uuidv7(),
+    entity_type: "Roll",
+    entity_id: entityId,
+    operation_type: "DELETE",
+    expected_entity_version: 1,
+    payload,
+    payload_hash: hashPayload(payload),
+  });
+
+  // Matching identity -> accepted (archives created entity).
+  const ok = await app.push(del({ entity_type: "Roll", entity_id: created.entity_id }));
+  assert.equal(ok.status, "ACCEPTED");
+
+  const rejected = async (body: unknown) => {
+    const res = await app.push(body);
+    assert.equal(res.status, "REJECTED");
+    return res as Extract<Awaited<ReturnType<typeof app.push>>, { status: "REJECTED" }>;
+  };
+
+  // missing entity_type
+  assert.equal((await rejected(del({ entity_id: uuidv7() }))).reason_code, "MISSING_METADATA");
+  // missing entity_id
+  assert.equal((await rejected(del({ entity_type: "Roll" }))).reason_code, "MISSING_METADATA");
+  // entity_type mismatch
+  assert.equal((await rejected(del({ entity_type: "Game", entity_id: created.entity_id }))).reason_code, "ENTITY_TYPE_MISMATCH");
+  // entity_id mismatch
+  assert.equal((await rejected(del({ entity_type: "Roll", entity_id: uuidv7() }))).reason_code, "ENTITY_ID_MISMATCH");
+  // malformed entity_id
+  assert.equal((await rejected(del({ entity_type: "Roll", entity_id: "not-a-uuid" }))).reason_code, "INVALID_UUID");
 });
