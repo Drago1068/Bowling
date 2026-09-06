@@ -119,25 +119,7 @@ function applyCreate(tx: Tx, req: ValidatedPushRequest, now: Date, incomingHash:
   return (async () => {
     const existing = await entityRepo.getForUpdate(tx, req.entity_type, req.entity_id);
     if (existing) {
-      const conflictId = uuidv7();
-      await conflictRepo.insert(tx, {
-        conflict_id: conflictId, entity_type: req.entity_type, entity_id: req.entity_id,
-        submission_id: req.submission_id, device_id: req.device_id,
-        expected_entity_version: 0, canonical_entity_version: existing.entity_version,
-        incoming_payload: req.payload as PlainObj, created_at: now, resolution_status: "OPEN",
-      });
-      await auditRepo.insert(tx, {
-        audit_id: uuidv7(), happened_at: now, actor: req.device_id, action: "push",
-        entity_type: req.entity_type, entity_id: req.entity_id, submission_id: req.submission_id,
-        outcome: "CONFLICT", prior_version: null, result_version: existing.entity_version,
-        metadata: { reason: "CREATE target already exists" },
-      });
-      log.warn("conflict", { submission_id: req.submission_id, outcome: "CONFLICT", reason: "CREATE target already exists" });
-      return {
-        status: "CONFLICT", conflict_id: conflictId, submission_id: req.submission_id,
-        entity_id: req.entity_id, canonical_entity_version: existing.entity_version,
-        expected_entity_version: req.expected_entity_version,
-      } satisfies ConflictResult;
+      return recordConflict(tx, req, existing, now, incomingHash, log, "CREATE target already exists");
     }
 
     const payload = req.payload as PlainObj;
@@ -171,7 +153,7 @@ function applyUpdate(tx: Tx, req: ValidatedPushRequest, now: Date, incomingHash:
     const existing = await entityRepo.getForUpdate(tx, req.entity_type, req.entity_id);
     if (!existing) return rejectMissing(req, log);
     if (existing.entity_version !== req.expected_entity_version) {
-      return recordConflict(tx, req, existing, now, incomingHash, log);
+      return recordConflict(tx, req, existing, now, incomingHash, log, "stale version");
     }
     const immutableIssue = checkImmutable(req.payload as PlainObj, existing, req);
     if (immutableIssue) {
@@ -193,7 +175,7 @@ function applyUpdate(tx: Tx, req: ValidatedPushRequest, now: Date, incomingHash:
       created_at: iso(existing.created_at), schema_version: Number(payload.schema_version),
       entity_version: nextVersion,
       data_quality: isDataQuality(payload.data_quality) ? payload.data_quality : existing.data_quality,
-      updated_at: nowIso, archived: existing.archived,
+      updated_at: nowIso, deleted: existing.archived,
     };
     await entityRepo.update(tx, {
       entity_type: req.entity_type, entity_id: req.entity_id,
@@ -218,7 +200,7 @@ function applyCorrect(tx: Tx, req: ValidatedPushRequest, now: Date, incomingHash
     const existing = await entityRepo.getForUpdate(tx, req.entity_type, req.entity_id);
     if (!existing) return rejectMissing(req, log);
     if (existing.entity_version !== req.expected_entity_version) {
-      return recordConflict(tx, req, existing, now, incomingHash, log);
+      return recordConflict(tx, req, existing, now, incomingHash, log, "stale version");
     }
     const correction = req.payload as PlainObj;
     const corrected = isRecord(correction.corrected_representation) ? correction.corrected_representation : {};
@@ -230,7 +212,7 @@ function applyCorrect(tx: Tx, req: ValidatedPushRequest, now: Date, incomingHash
       created_at: iso(existing.created_at),
       schema_version: Number((existing.payload as PlainObj).schema_version),
       entity_version: nextVersion, data_quality: "CORRECTED", updated_at: nowIso,
-      archived: existing.archived,
+      deleted: existing.archived,
     };
     await entityRepo.update(tx, {
       entity_type: req.entity_type, entity_id: req.entity_id,
@@ -256,22 +238,33 @@ function applyArchive(tx: Tx, req: ValidatedPushRequest, now: Date, incomingHash
     const existing = await entityRepo.getForUpdate(tx, req.entity_type, req.entity_id);
     if (!existing) return rejectMissing(req, log);
     if (existing.entity_version !== req.expected_entity_version) {
-      return recordConflict(tx, req, existing, now, incomingHash, log);
+      return recordConflict(tx, req, existing, now, incomingHash, log, "stale version");
     }
     const nextVersion = existing.entity_version + 1;
+    const nowIso = iso(now);
+    const fullPayload: PlainObj = {
+      ...(existing.payload as PlainObj),
+      id: existing.entity_id,
+      entity_type: existing.entity_type,
+      origin_device_id: existing.origin_device_id,
+      created_at: iso(existing.created_at),
+      entity_version: nextVersion,
+      updated_at: nowIso,
+      deleted: true,
+    };
     await entityRepo.update(tx, {
       entity_type: req.entity_type, entity_id: req.entity_id,
       schema_version: existing.schema_version, entity_version: nextVersion,
       origin_device_id: existing.origin_device_id, data_quality: existing.data_quality,
       created_at: existing.created_at, updated_at: now, archived: true,
-      payload: existing.payload, payload_hash: existing.payload_hash,
+      payload: fullPayload, payload_hash: hashPayload(fullPayload),
     });
     await auditRepo.insert(tx, {
       audit_id: uuidv7(), happened_at: now, actor: req.device_id, action: "ARCHIVE",
       entity_type: req.entity_type, entity_id: req.entity_id, submission_id: req.submission_id,
       outcome: "ACCEPTED", prior_version: existing.entity_version, result_version: nextVersion, metadata: null,
     });
-    const result = await finalizeAcceptedTx(tx, req, now, nextVersion, existing.payload, incomingHash);
+    const result = await finalizeAcceptedTx(tx, req, now, nextVersion, fullPayload, incomingHash);
     log.info("accepted", { submission_id: req.submission_id, device_id: req.device_id, entity_type: req.entity_type, entity_id: req.entity_id, entity_version: nextVersion, operation: "ARCHIVE" });
     return result;
   })();
@@ -292,7 +285,7 @@ function rejectMissing(req: ValidatedPushRequest, log: Logger): RejectedResult {
 
 async function recordConflict(
   tx: Tx, req: ValidatedPushRequest, existing: CanonicalEntityRow,
-  now: Date, incomingHash: string, log: Logger,
+  now: Date, incomingHash: string, log: Logger, reason: string,
 ): Promise<ConflictResult> {
   const conflictId = uuidv7();
   await conflictRepo.insert(tx, {
@@ -305,7 +298,7 @@ async function recordConflict(
     audit_id: uuidv7(), happened_at: now, actor: req.device_id, action: "push",
     entity_type: req.entity_type, entity_id: req.entity_id, submission_id: req.submission_id,
     outcome: "CONFLICT", prior_version: existing.entity_version, result_version: null,
-    metadata: { reason: "stale version" },
+    metadata: { reason },
   });
   const result: ConflictResult = {
     status: "CONFLICT", conflict_id: conflictId, submission_id: req.submission_id,

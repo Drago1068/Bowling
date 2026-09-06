@@ -44,9 +44,9 @@ function validateBowlingFacts(entity_type: string, payload: PlainObj): string | 
         typeof payload.frame_number !== "number" ||
         !Number.isInteger(payload.frame_number) ||
         payload.frame_number < 1 ||
-        payload.frame_number > 12
+        payload.frame_number > 10
       ) {
-        return "Frame.frame_number must be an integer 1..12 or null";
+        return "Frame.frame_number must be an integer 1..10 or null";
       }
     }
   }
@@ -132,25 +132,27 @@ export function validatePushRequest(raw: unknown): ValidationOutcome {
     return reject(REASON_CODES.MALFORMED_PAYLOAD, "payload must be an object", sid);
   }
 
-  const schemaIssue = validateSchemaVersion(req.payload);
-  if (schemaIssue) {
-    if (typeof (req.payload as PlainObj).schema_version === "number") {
-      return {
-        ok: false,
-        kind: "unsupported_schema",
-        entity_type: req.entity_type,
-        supported: [...SUPPORTED_SCHEMA_VERSIONS],
-        received: (req.payload as PlainObj).schema_version as number,
-      };
-    }
-    return reject(REASON_CODES.MISSING_METADATA, schemaIssue, sid);
-  }
-
   if (req.operation_type === "CORRECT") {
     return validateCorrection(req);
   }
 
   const p = req.payload;
+  if (req.operation_type !== "DELETE") {
+    const schemaIssue = validateSchemaVersion(p);
+    if (schemaIssue) {
+      if (typeof p.schema_version === "number") {
+        return {
+          ok: false,
+          kind: "unsupported_schema",
+          entity_type: req.entity_type,
+          supported: [...SUPPORTED_SCHEMA_VERSIONS],
+          received: p.schema_version as number,
+        };
+      }
+      return reject(REASON_CODES.MISSING_METADATA, schemaIssue, sid);
+    }
+  }
+
   if (req.operation_type === "CREATE") {
     if (typeof p.data_quality !== "string" || !isDataQuality(p.data_quality)) {
       return reject(REASON_CODES.MISSING_METADATA, "CREATE payload must include a valid data_quality", sid);

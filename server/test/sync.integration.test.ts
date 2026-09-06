@@ -9,6 +9,8 @@ import {
   makeRollCreate,
   makeRollUpdate,
   makeCorrection,
+  makeArchive,
+  makeFrameCreate,
   testConfig,
   truncateAll,
   query,
@@ -372,6 +374,167 @@ test("invalid client input is rejected without corrupting state", async () => {
     } else {
       assert.equal(result.status, "REJECTED", name);
       if (result.status === "REJECTED") assert.equal(result.reason_code, reason, name);
+    }
+  }
+});
+
+test("CREATE conflict is idempotent: replay same conflict id, no duplicates", async () => {
+  const original = makeRollCreate();
+  assert.equal((await app.push(original.request)).status, "ACCEPTED");
+
+  const conflictingPayload = { ...(original.request.payload as object), pinfall: 3 };
+  const conflicting = {
+    protocol_version: 1,
+    submission_id: uuidv7(),
+    device_id: uuidv7(),
+    entity_type: "Roll",
+    entity_id: original.entity_id,
+    operation_type: "CREATE",
+    expected_entity_version: 0,
+    payload: conflictingPayload,
+    payload_hash: hashPayload(conflictingPayload),
+  };
+
+  const result1 = await app.push(conflicting);
+  assert.equal(result1.status, "CONFLICT");
+  if (result1.status !== "CONFLICT") return;
+
+  const result2 = await app.push(conflicting);
+  assert.equal(result2.status, "CONFLICT");
+  if (result2.status === "CONFLICT") {
+    assert.equal(result2.conflict_id, result1.conflict_id);
+  }
+
+  const conflictRows = await query<{ n: string }>(
+    "SELECT count(*)::text AS n FROM sync_conflicts WHERE submission_id = $1",
+    [conflicting.submission_id],
+  );
+  assert.equal(Number(conflictRows[0]!.n), 1);
+
+  const canonical = await query<{ entity_version: number }>(
+    "SELECT entity_version FROM canonical_entities WHERE entity_id = $1",
+    [original.entity_id],
+  );
+  assert.equal(canonical[0]!.entity_version, 1);
+});
+
+test("CREATE conflict: same submission id + changed payload -> SUBMISSION_ID_COLLISION", async () => {
+  const original = makeRollCreate();
+  await app.push(original.request);
+
+  const sid = uuidv7();
+  const mk = (pinfall: number) => {
+    const payload = { ...(original.request.payload as object), pinfall };
+    return {
+      protocol_version: 1,
+      submission_id: sid,
+      device_id: uuidv7(),
+      entity_type: "Roll",
+      entity_id: original.entity_id,
+      operation_type: "CREATE",
+      expected_entity_version: 0,
+      payload,
+      payload_hash: hashPayload(payload),
+    };
+  };
+
+  assert.equal((await app.push(mk(3))).status, "CONFLICT");
+  const result = await app.push(mk(4));
+  assert.equal(result.status, "REJECTED");
+  if (result.status === "REJECTED") assert.equal(result.reason_code, "SUBMISSION_ID_COLLISION");
+});
+
+test("ARCHIVE produces self-consistent canonical payload", async () => {
+  const r = makeRollCreate();
+  await app.push(r.request);
+
+  const archive = makeArchive(r.entity_id, r.device_id, 1);
+  const result = await app.push(archive);
+  assert.equal(result.status, "ACCEPTED");
+
+  const rows = await query<{
+    entity_version: number;
+    archived: boolean;
+    payload_hash: string;
+    payload: Record<string, unknown>;
+    updated_at: Date;
+  }>(
+    "SELECT entity_version, archived, payload_hash, payload, updated_at FROM canonical_entities WHERE entity_id = $1",
+    [r.entity_id],
+  );
+  const row = rows[0]!;
+  assert.equal(row.entity_version, 2);
+  assert.equal((row.payload as { entity_version: number }).entity_version, row.entity_version);
+  assert.equal(row.archived, true);
+  assert.equal((row.payload as { deleted: boolean }).deleted, true);
+  assert.equal(row.payload_hash, hashPayload(row.payload));
+  assert.equal(
+    (row.payload as { updated_at: string }).updated_at,
+    row.updated_at.toISOString(),
+  );
+
+  // change_feed version matches the canonical version.
+  const feed = await query<{ entity_version: number }>(
+    "SELECT entity_version FROM change_feed WHERE submission_id = $1",
+    [archive.submission_id as string],
+  );
+  assert.equal(feed[0]!.entity_version, 2);
+});
+
+test("ARCHIVE exact retry is idempotent", async () => {
+  const r = makeRollCreate();
+  await app.push(r.request);
+  const archive = makeArchive(r.entity_id, r.device_id, 1);
+
+  assert.equal((await app.push(archive)).status, "ACCEPTED");
+  assert.equal((await app.push(archive)).status, "ALREADY_ACCEPTED");
+
+  const rows = await query<{ entity_version: number }>(
+    "SELECT entity_version FROM canonical_entities WHERE entity_id = $1",
+    [r.entity_id],
+  );
+  assert.equal(rows[0]!.entity_version, 2);
+
+  const feed = await query<{ n: string }>(
+    "SELECT count(*)::text AS n FROM change_feed WHERE entity_id = $1 AND operation = 'DELETE'",
+    [r.entity_id],
+  );
+  assert.equal(Number(feed[0]!.n), 1);
+});
+
+test("ARCHIVE stale version -> CONFLICT and preserved", async () => {
+  const r = makeRollCreate();
+  await app.push(r.request);
+  await app.push(makeRollUpdate(r.entity_id, r.device_id, r.created_at, r.device_id, 7, 1));
+
+  const staleArchive = makeArchive(r.entity_id, r.device_id, 1);
+  const result = await app.push(staleArchive);
+  assert.equal(result.status, "CONFLICT");
+
+  const rows = await query<{ entity_version: number; archived: boolean }>(
+    "SELECT entity_version, archived FROM canonical_entities WHERE entity_id = $1",
+    [r.entity_id],
+  );
+  assert.equal(rows[0]!.entity_version, 2);
+  assert.equal(rows[0]!.archived, false);
+
+  const conflicts = await query<{ n: string }>(
+    "SELECT count(*)::text AS n FROM sync_conflicts WHERE entity_id = $1",
+    [r.entity_id],
+  );
+  assert.equal(Number(conflicts[0]!.n), 1);
+});
+
+test("Frame.frame_number validation: 1..10 accepted, 0/11/12 rejected", async () => {
+  for (const valid of [1, 10]) {
+    const result = await app.push(makeFrameCreate(valid));
+    assert.equal(result.status, "ACCEPTED", `frame ${valid} should pass`);
+  }
+  for (const invalid of [0, 11, 12]) {
+    const result = await app.push(makeFrameCreate(invalid));
+    assert.equal(result.status, "REJECTED", `frame ${invalid} should be rejected`);
+    if (result.status === "REJECTED") {
+      assert.equal(result.reason_code, "INVALID_BOWLING_FACTS");
     }
   }
 });

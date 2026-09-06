@@ -167,3 +167,54 @@ export async function query<T extends Record<string, unknown>>(
     await pool.end();
   }
 }
+
+export function makeArchive(
+  entityId: string,
+  submittingDeviceId: string,
+  expectedVersion: number,
+  submissionId: string = uuidv7(),
+): Record<string, unknown> {
+  const payload = { entity_type: "Roll", entity_id: entityId };
+  return {
+    protocol_version: 1,
+    submission_id: submissionId,
+    device_id: submittingDeviceId,
+    entity_type: "Roll",
+    entity_id: entityId,
+    operation_type: "DELETE",
+    expected_entity_version: expectedVersion,
+    payload,
+    payload_hash: hashPayload(payload),
+  };
+}
+
+export function makeFrameCreate(
+  frameNumber: number,
+  deviceId: string = uuidv7(),
+): Record<string, unknown> {
+  const entityId = uuidv7();
+  const payload = {
+    id: entityId,
+    entity_type: "Frame",
+    schema_version: 1,
+    entity_version: 1,
+    data_quality: "COMPLETE",
+    origin_device_id: deviceId,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    game_id: uuidv7(),
+    frame_number: frameNumber,
+    deleted: false,
+  };
+  return {
+    protocol_version: 1,
+    submission_id: uuidv7(),
+    device_id: deviceId,
+    entity_type: "Frame",
+    entity_id: entityId,
+    operation_type: "CREATE",
+    expected_entity_version: 0,
+    payload,
+    payload_hash: hashPayload(payload),
+  };
+}
