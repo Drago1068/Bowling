@@ -23,10 +23,31 @@ function tmpPath(label: string): string {
   return join(tmpdir(), `bowling-init-${label}-${uuidv7()}.db`);
 }
 
+/**
+ * Windows-safe bounded cleanup: remove -wal/-shm/db in order, retrying transient
+ * lock errors (EPERM/EBUSY) with exponential backoff, then throw on deadline.
+ * Mirrors the established pattern in tests/mobile.lifecycle.test.ts.
+ */
+function sleepSync(ms: number): void {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
 function cleanup(path: string): void {
-  rmSync(path, { force: true });
-  rmSync(`${path}-wal`, { force: true });
-  rmSync(`${path}-shm`, { force: true });
+  const files = [`${path}-wal`, `${path}-shm`, path];
+  const deadline = Date.now() + 4000;
+  for (const file of files) {
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        rmSync(file, { force: true });
+        break;
+      } catch (err) {
+        const code = (err as NodeJS.ErrnoException).code;
+        if (code !== "EPERM" && code !== "EBUSY") throw err;
+        if (Date.now() >= deadline) throw err;
+        sleepSync(Math.min(200, 25 * Math.pow(2, attempt)));
+      }
+    }
+  }
 }
 
 test("empty database: schema initialized successfully", () => {
@@ -127,7 +148,7 @@ test("migration failure is reported and existing database is retained", () => {
     assert.equal(createDeviceStore(second).get()?.device_id, deviceId);
     assert.equal(
       Number(second.prepare("SELECT MAX(version) AS v FROM schema_migrations").get()?.v),
-      1,
+      CURRENT_SCHEMA_VERSION,
     );
     second.close();
   } finally {

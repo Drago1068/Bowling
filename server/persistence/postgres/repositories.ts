@@ -37,6 +37,8 @@ export interface ChangeFeedRow {
   operation: string;
   submission_id: string;
   committed_at: Date;
+  payload: Record<string, unknown> | null;
+  origin_device_id: string | null;
 }
 
 export interface InsertEntity {
@@ -298,8 +300,13 @@ export const changeFeedRepo = {
   },
   async listAfter(db: Db, afterCursor: number, limit: number): Promise<ChangeFeedRow[]> {
     const { rows } = await db.query(
-      `SELECT change_seq, entity_type, entity_id, entity_version, operation, submission_id, committed_at
-       FROM change_feed WHERE change_seq > $1 ORDER BY change_seq ASC LIMIT $2`,
+      `SELECT cf.change_seq, cf.entity_type, cf.entity_id, cf.entity_version,
+              cf.operation, cf.submission_id, cf.committed_at,
+              ce.payload AS payload, ce.origin_device_id AS origin_device_id
+       FROM change_feed cf
+       LEFT JOIN canonical_entities ce
+         ON ce.entity_type = cf.entity_type AND ce.entity_id = cf.entity_id
+       WHERE cf.change_seq > $1 ORDER BY cf.change_seq ASC LIMIT $2`,
       [afterCursor, limit],
     );
     return (rows as Array<Record<string, unknown>>).map((r) => ({
@@ -310,6 +317,8 @@ export const changeFeedRepo = {
       operation: String(r.operation),
       submission_id: String(r.submission_id),
       committed_at: r.committed_at as Date,
+      payload: (r.payload ?? null) as Record<string, unknown> | null,
+      origin_device_id: (r.origin_device_id ?? null) as string | null,
     }));
   },
   async countAfter(db: Db, afterCursor: number): Promise<number> {

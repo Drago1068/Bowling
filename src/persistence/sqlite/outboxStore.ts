@@ -59,6 +59,9 @@ export function createOutboxStore(db: SqliteDriver): SyncOutboxStore {
   const pendingStmt = db.prepare(
     "SELECT * FROM sync_outbox WHERE state IN ('QUEUED','RETRYABLE_ERROR') ORDER BY seq",
   );
+  const resumableStmt = db.prepare(
+    "SELECT * FROM sync_outbox WHERE state IN ('SUBMITTED','ACCEPTED') ORDER BY seq",
+  );
   const setStateStmt = db.prepare(
     "UPDATE sync_outbox SET state = ? WHERE submission_id = ?",
   );
@@ -102,6 +105,10 @@ export function createOutboxStore(db: SqliteDriver): SyncOutboxStore {
     },
     pending(): OutboxEntry[] {
       const rows = pendingStmt.all() as unknown as OutboxRow[];
+      return rows.map(entryFromRow);
+    },
+    resumable(): OutboxEntry[] {
+      const rows = resumableStmt.all() as unknown as OutboxRow[];
       return rows.map(entryFromRow);
     },
     setState(submissionId: string, state: SyncState): void {

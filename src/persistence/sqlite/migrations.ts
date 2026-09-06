@@ -86,6 +86,22 @@ CREATE TABLE IF NOT EXISTS corrections (
 CREATE INDEX IF NOT EXISTS idx_corrections_target ON corrections(target_entity_type, target_entity_id);
 `;
 
+const V002_SYNC_CONFLICTS = `
+CREATE TABLE IF NOT EXISTS sync_conflicts (
+  conflict_id TEXT PRIMARY KEY,
+  submission_id TEXT NOT NULL UNIQUE,
+  entity_type TEXT NOT NULL,
+  entity_id TEXT NOT NULL,
+  expected_entity_version INTEGER NOT NULL,
+  canonical_entity_version INTEGER NOT NULL,
+  local_payload TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'OPEN',
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_sync_conflicts_entity ON sync_conflicts(entity_type, entity_id);
+`;
+
 export const MIGRATIONS: readonly Migration[] = [
   { version: 1, name: "baseline", sql: V001_BASELINE },
+  { version: 2, name: "sync_conflicts", sql: V002_SYNC_CONFLICTS },
 ];

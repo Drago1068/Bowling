@@ -16,6 +16,7 @@ export { createOutboxStore } from "./outboxStore.ts";
 export { createAppliedChangeStore } from "./appliedChangeStore.ts";
 export { createCheckpointStore } from "./checkpointStore.ts";
 export { createCorrectionStore } from "./correctionStore.ts";
+export { createConflictStore } from "./conflictStore.ts";
 export {
   applyLocalMutation,
   type LocalMutationInput,

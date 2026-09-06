@@ -9,6 +9,8 @@ export interface PullChange {
   operation: string;
   submission_id: string;
   committed_at: string;
+  payload: unknown;
+  origin_device_id: string | null;
 }
 
 export interface PullChangesResult {
@@ -31,6 +33,8 @@ export async function pullChanges(
     operation: r.operation,
     submission_id: r.submission_id,
     committed_at: r.committed_at.toISOString(),
+    payload: r.payload ?? undefined,
+    origin_device_id: r.origin_device_id,
   }));
   const next_cursor = changes.length > 0 ? changes[changes.length - 1]!.change_seq : afterCursor;
   let has_more = false;

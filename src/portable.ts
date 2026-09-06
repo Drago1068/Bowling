@@ -54,6 +54,22 @@ export { createDeviceIdentity } from "./identity/device.ts";
 export * from "./sync/envelope.ts";
 export * from "./sync/hashing.ts";
 export * from "./sync/stateMachine.ts";
+export * from "./sync/transport.ts";
+export {
+  createSyncCoordinator,
+  applyRemoteChange,
+  CHECKPOINT_KEY,
+  SERVER_RECEIPT_PREFIX,
+  serverReceiptKey,
+  type SyncCoordinator,
+  type CoordinatorStores,
+  type CoordinatorOptions,
+  type SyncFaults,
+  type PushReport,
+  type PullReport,
+  type SyncReport,
+  type ServerReceipt,
+} from "./sync/coordinator.ts";
 export {
   SYNC_PRESENTATION_STATUSES,
   deriveSyncPresentation,

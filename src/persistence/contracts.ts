@@ -34,6 +34,8 @@ export interface SyncOutboxStore {
   get(submissionId: string): OutboxEntry | null;
   /** Entries eligible for (re)submission: QUEUED or RETRYABLE_ERROR. */
   pending(): OutboxEntry[];
+  /** In-flight entries (SUBMITTED or ACCEPTED) needing re-drive to CONFIRMED. */
+  resumable(): OutboxEntry[];
   setState(submissionId: string, state: SyncState): void;
   markSubmitted(submissionId: string, submittedAt: string): void;
   recordError(submissionId: string, message: string): void;
@@ -65,4 +67,27 @@ export interface CorrectionStore {
   record(correction: Correction): void;
   get(correctionId: string): Correction | null;
   listForTarget(entityType: EntityType, entityId: string): Correction[];
+}
+
+/**
+ * A durable server conflict preserved locally. The local observation and the
+ * server canonical version are both retained; neither is discarded.
+ */
+export interface ConflictRecord {
+  submission_id: string;
+  conflict_id: string;
+  entity_type: EntityType;
+  entity_id: string;
+  expected_entity_version: number;
+  canonical_entity_version: number;
+  /** The original local observation payload that was rejected as stale. */
+  local_payload: unknown;
+  status: "OPEN" | "RESOLVED";
+  created_at: string;
+}
+
+export interface ConflictStore {
+  record(conflict: ConflictRecord): void;
+  list(): ConflictRecord[];
+  listForEntity(entityType: EntityType, entityId: string): ConflictRecord[];
 }
