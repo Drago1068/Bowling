@@ -43,28 +43,41 @@ function sleepSync(ms: number): void {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 }
 
+const SQLITE_CLEANUP_WINDOW_MS = 4000;
+const SQLITE_CLEANUP_INITIAL_DELAY_MS = 25;
+const SQLITE_CLEANUP_MAX_DELAY_MS = 250;
+
+function isRetryableCleanupError(err: unknown): boolean {
+  const code = (err as NodeJS.ErrnoException).code;
+  return code === "EPERM" || code === "EBUSY";
+}
+
 function cleanup(path: string): void {
-  const targets = [path, `${path}-wal`, `${path}-shm`];
-  const maxAttempts = 10;
-  const delayMs = 20;
+  const remaining = [`${path}-wal`, `${path}-shm`, path];
+  const deadline = Date.now() + SQLITE_CLEANUP_WINDOW_MS;
+  let delayMs = SQLITE_CLEANUP_INITIAL_DELAY_MS;
   let lastError: unknown;
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    try {
-      for (const target of targets) {
+
+  while (remaining.length > 0) {
+    const locked: string[] = [];
+    for (const target of remaining) {
+      try {
         rmSync(target, { force: true });
-      }
-      return;
-    } catch (err) {
-      const code = (err as NodeJS.ErrnoException).code;
-      if (code === "EPERM" || code === "EBUSY") {
+      } catch (err) {
+        if (!isRetryableCleanupError(err)) throw err;
         lastError = err;
-        sleepSync(delayMs);
-        continue;
+        locked.push(target);
       }
-      throw err;
     }
+    if (locked.length === 0) return;
+
+    const remainingMs = deadline - Date.now();
+    if (remainingMs <= 0) throw lastError;
+    sleepSync(Math.min(delayMs, remainingMs));
+    delayMs = Math.min(delayMs * 2, SQLITE_CLEANUP_MAX_DELAY_MS);
+    remaining.length = 0;
+    remaining.push(...locked);
   }
-  throw lastError;
 }
 
 test("device id is created on first launch and reused afterwards", () => {
