@@ -1,0 +1,26 @@
+# Minimal NAS foundation for ARCH-001 Slice 2 local development/testing.
+# No public database port; postgres is bound to loopback only.
+#
+# Run the API separately (Node, no container required yet):
+#   npm run migrate   # applies migrations to $DATABASE_URL
+#   npm start         # runs server/cli/serve.ts
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: bowling
+      POSTGRES_PASSWORD: bowling
+      POSTGRES_DB: bowling
+    ports:
+      - "127.0.0.1:55433:5432"
+    volumes:
+      - bowling_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bowling"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  bowling_pgdata:

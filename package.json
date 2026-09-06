@@ -14,14 +14,21 @@
     "test": "node --experimental-strip-types --test tests/*.test.ts",
     "test:existing": "node --experimental-strip-types --test tests/correction-atomic.test.ts tests/correction.test.ts tests/device.test.ts tests/hashing.test.ts tests/identity.test.ts tests/immutable-metadata.test.ts tests/sqlite.outbox.test.ts tests/stateMachine.test.ts tests/submission.test.ts tests/uuidv7.monotonic.test.ts tests/versioning.test.ts",
     "test:mobile": "node --experimental-strip-types --test tests/conformance.driver.test.ts tests/conformance.sqlite.test.ts tests/isolation.runtime.test.ts tests/mobile.airplane.test.ts tests/mobile.crash-windows.test.ts tests/mobile.init.test.ts tests/mobile.lifecycle.test.ts tests/sync.presentation.test.ts tests/uuidv7.runtime.test.ts tests/vectors.test.ts",
-    "test:conformance": "node --experimental-strip-types --test tests/conformance.sqlite.test.ts"
+    "test:conformance": "node --experimental-strip-types --test tests/conformance.sqlite.test.ts",
+    "test:server": "node --experimental-strip-types --test server/test/*.test.ts",
+    "migrate": "node --experimental-strip-types server/cli/migrate.ts",
+    "start": "node --experimental-strip-types server/cli/serve.ts"
   },
   "exports": {
     ".": "./src/index.ts",
     "./portable": "./src/portable.ts"
   },
+  "dependencies": {
+    "pg": "^8.13.1"
+  },
   "devDependencies": {
     "@types/node": "^24.0.0",
+    "@types/pg": "^8.11.10",
     "@types/sql.js": "^1.4.11",
     "sql.js": "^1.14.2",
     "typescript": "^5.8.0"
