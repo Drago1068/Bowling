@@ -197,3 +197,62 @@ test("invalid roll_number ordering rejected as invalid state transition", () => 
   assert.equal(r.ok, false);
   assert.equal(r.code, "INVALID_STATE_TRANSITION");
 });
+
+// ---- Correction topology: preserved facts are not re-parsed as later deliveries ----
+
+test("OPEN_TO_STRIKE: leftover second roll stays on the frame and is not scored as bonus", () => {
+  const facts = [
+    fact(1, 1, 10),
+    fact(1, 2, 4),
+    fact(2, 1, 3),
+  ];
+  const s = deriveGame(facts);
+  assert.equal(s.status, "DOMAIN_INVALID_REQUIRING_REPAIR");
+  assert.equal(s.finalTotal, null);
+  assert.equal(s.finalScoreUnavailable, true);
+  assert.deepEqual(s.frames[0]!.deliveries, [10, 4]);
+  assert.equal(s.frames[0]!.score, null);
+  assert.deepEqual(s.frames[1]!.deliveries, [3]);
+});
+
+test("SPARE_TO_STRIKE: leftover spare-completion roll is not a strike bonus", () => {
+  const s = deriveGame([fact(1, 1, 10), fact(1, 2, 4), fact(2, 1, 3), fact(2, 2, 3)]);
+  assert.equal(s.status, "DOMAIN_INVALID_REQUIRING_REPAIR");
+  assert.deepEqual(s.frames[0]!.deliveries, [10, 4]);
+  assert.equal(s.finalScoreUnavailable, true);
+});
+
+test("STRIKE_TO_NON_STRIKE: downstream frame rolls stay valid on their frames", () => {
+  const s = deriveGame([fact(1, 1, 5), fact(2, 1, 3), fact(2, 2, 4)]);
+  assert.equal(s.status, "IN_PROGRESS");
+  assert.equal(s.frames[0]!.isStrike, false);
+  assert.deepEqual(s.frames[0]!.deliveries, [5]);
+  assert.equal(s.frames[1]!.isOpen, true);
+  assert.equal(s.frames[1]!.score, 7);
+  assert.equal(s.finalScoreUnavailable, true);
+});
+
+test("TENTH_FRAME_TOPOLOGY: open tenth plus leftover bonus roll is invalid", () => {
+  const facts = game(Array.from({ length: 9 }, (_, i) => ({ frame: i + 1, rolls: [5, 3] }))).concat(
+    fact(10, 1, 5),
+    fact(10, 2, 3),
+    fact(10, 3, 8),
+  );
+  const s = deriveGame(facts);
+  assert.equal(s.status, "DOMAIN_INVALID_REQUIRING_REPAIR");
+  assert.deepEqual(s.frames[9]!.deliveries, [5, 3, 8]);
+  assert.equal(s.finalTotal, null);
+});
+
+test("TENTH_FRAME_TOPOLOGY: strike in tenth keeps two bonus rolls legal", () => {
+  const facts = game(Array.from({ length: 9 }, (_, i) => ({ frame: i + 1, rolls: [10] }))).concat(
+    fact(10, 1, 10),
+    fact(10, 2, 10),
+    fact(10, 3, 7),
+  );
+  const s = deriveGame(facts);
+  assert.equal(s.status, "COMPLETED");
+  assert.equal(s.frames[9]!.isStrike, true);
+  assert.equal(s.frames[9]!.score, 27);
+  assert.equal(s.finalTotal, 297);
+});

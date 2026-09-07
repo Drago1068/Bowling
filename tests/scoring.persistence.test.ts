@@ -107,6 +107,32 @@ function rollIdFor(db: SqliteDriver, frameNumber: number, rollNumber: number): s
   return roll.id;
 }
 
+function correctPinfall(
+  db: SqliteDriver,
+  frameNumber: number,
+  rollNumber: number,
+  from: number,
+  to: number,
+  reason = "recount",
+): string {
+  const target = rollIdFor(db, frameNumber, rollNumber);
+  const prior = (createEntityStore(db).get("Roll", target) as { entity_version: number }).entity_version;
+  applyCorrection(db, {
+    correction: createCorrection({
+      target_entity_type: "Roll",
+      target_entity_id: target,
+      prior_entity_version: prior,
+      corrected_representation: { id: target, pinfall: to },
+      change: { pinfall: { from, to } },
+      reason,
+      actor: "bowler-001",
+      origin_device_id: TEST_DEVICE_ID,
+    }),
+    deviceId: TEST_DEVICE_ID,
+  });
+  return target;
+}
+
 // ---- CORRECTION ----
 
 test("OPEN_TO_SPARE: correcting a 5,3 to a 5,5 spare adds the spare bonus", () => {
@@ -140,121 +166,115 @@ test("OPEN_TO_SPARE: correcting a 5,3 to a 5,5 spare adds the spare bonus", () =
   assert.equal(after.frames[0]!.score, 13);
 });
 
-test("OPEN_TO_STRIKE: correcting a first ball to a strike derives a strike deterministically", () => {
+test("OPEN_TO_STRIKE: leftover second roll is preserved and the game is DOMAIN_INVALID", () => {
   const db = openDatabase();
   const gameId = buildGame(db, [
-    { frame: 1, rolls: [5, 3] },
-    { frame: 2, rolls: [3, 4] },
+    { frame: 1, rolls: [6, 4] },
+    { frame: 2, rolls: [3] },
   ]);
-  const target = rollIdFor(db, 1, 1);
-  const prior = (createEntityStore(db).get("Roll", target) as { entity_version: number }).entity_version;
-  applyCorrection(db, {
-    correction: createCorrection({
-      target_entity_type: "Roll",
-      target_entity_id: target,
-      prior_entity_version: prior,
-      corrected_representation: { id: target, pinfall: 10 },
-      change: { pinfall: { from: 5, to: 10 } },
-      reason: "recount",
-      actor: "bowler-001",
-      origin_device_id: TEST_DEVICE_ID,
-    }),
-    deviceId: TEST_DEVICE_ID,
-  });
-  // The corrected first ball makes frame 1 a strike; its bonus is drawn from
-  // the next two legal deliveries after it in the ordered fact stream. The
-  // frame-1 second-ball entity (the former "3") remains an effective fact and
-  // is the first of those two bonus deliveries (10 + 3 + frame-2 first = 3).
-  const s = deriveGame(loadGameFacts(createEntityStore(db), gameId));
-  assert.equal(s.frames[0]!.isStrike, true);
-  assert.equal(s.frames[0]!.score, 10 + 3 + 3); // 16
+  const secondId = rollIdFor(db, 1, 2);
+  const target = correctPinfall(db, 1, 1, 6, 10);
+
+  const facts = loadGameFacts(createEntityStore(db), gameId);
+  const leftover = facts.find((f) => f.entity_id === secondId);
+  assert.ok(leftover);
+  assert.equal(leftover.frame_number, 1);
+  assert.equal(leftover.roll_number, 2);
+  assert.equal(leftover.pinfall, 4);
+
+  const s = deriveGame(facts);
+  assert.equal(s.status, "DOMAIN_INVALID_REQUIRING_REPAIR");
+  assert.equal(s.finalScoreUnavailable, true);
+  assert.equal(s.finalTotal, null);
+  assert.deepEqual(s.frames[0]!.deliveries, [10, 4]);
+  assert.equal(s.frames[0]!.score, null);
+  assert.notEqual(s.frames[0]!.score, 10 + 4 + 3);
+  assert.equal(createCorrectionStore(db).listForTarget("Roll", target).length, 1);
 });
 
-test("STRIKE_TO_NON_STRIKE: a correction can turn a strike into an open", () => {
+test("OPEN_TO_STRIKE explicit repair restores a derivable state without deleting facts", () => {
+  const db = openDatabase();
+  const gameId = buildGame(db, [
+    { frame: 1, rolls: [6, 4] },
+    { frame: 2, rolls: [3] },
+  ]);
+  const secondId = rollIdFor(db, 1, 2);
+  correctPinfall(db, 1, 1, 6, 10);
+  assert.equal(deriveGame(loadGameFacts(createEntityStore(db), gameId)).status, "DOMAIN_INVALID_REQUIRING_REPAIR");
+
+  const repaired = correctPinfall(db, 1, 1, 10, 6);
+  const facts = loadGameFacts(createEntityStore(db), gameId);
+  const leftover = facts.find((f) => f.entity_id === secondId);
+  assert.ok(leftover);
+  assert.equal(leftover.frame_number, 1);
+  assert.equal(leftover.roll_number, 2);
+
+  const s = deriveGame(facts);
+  assert.equal(s.status, "IN_PROGRESS");
+  assert.equal(s.frames[0]!.isSpare, true);
+  assert.equal(s.finalScoreUnavailable, true);
+  assert.equal(createCorrectionStore(db).listForTarget("Roll", repaired).length, 2);
+});
+
+test("STRIKE_TO_NON_STRIKE: downstream rolls stay on later frames and remain legal", () => {
   const db = openDatabase();
   const gameId = buildGame(db, [
     { frame: 1, rolls: [10] },
     { frame: 2, rolls: [3, 4] },
   ]);
-  const target = rollIdFor(db, 1, 1);
-  const prior = (createEntityStore(db).get("Roll", target) as { entity_version: number }).entity_version;
-  applyCorrection(db, {
-    correction: createCorrection({
-      target_entity_type: "Roll",
-      target_entity_id: target,
-      prior_entity_version: prior,
-      corrected_representation: { id: target, pinfall: 5 },
-      change: { pinfall: { from: 10, to: 5 } },
-      reason: "miscount",
-      actor: "bowler-001",
-      origin_device_id: TEST_DEVICE_ID,
-    }),
-    deviceId: TEST_DEVICE_ID,
-  });
-  const s = deriveGame(loadGameFacts(createEntityStore(db), gameId));
+  correctPinfall(db, 1, 1, 10, 5, "miscount");
+  const facts = loadGameFacts(createEntityStore(db), gameId);
+  assert.equal(facts.find((f) => f.frame_number === 2 && f.roll_number === 1)?.pinfall, 3);
+  assert.equal(facts.find((f) => f.frame_number === 2 && f.roll_number === 2)?.pinfall, 4);
+  const s = deriveGame(facts);
+  assert.equal(s.status, "IN_PROGRESS");
   assert.equal(s.frames[0]!.isStrike, false);
+  assert.deepEqual(s.frames[0]!.deliveries, [5]);
+  assert.equal(s.frames[1]!.isOpen, true);
+  assert.equal(s.frames[1]!.score, 7);
 });
 
-test("TENTH_FRAME_CORRECTION: correcting a tenth bonus pinfall changes the final total", () => {
+test("TENTH_FRAME_CORRECTION: a legal bonus pinfall change still scores; leftover open-tenth bonus does not", () => {
   const db = openDatabase();
   const gameId = buildGame(db, [
     ...Array.from({ length: 9 }, (_, i) => ({ frame: i + 1, rolls: [10] })),
     { frame: 10, rolls: [10, 10, 7] },
   ]);
   const s0 = deriveGame(loadGameFacts(createEntityStore(db), gameId));
-  assert.equal(s0.finalTotal, 297); // (9 strikes) + 10 + 10 + 7
+  assert.equal(s0.finalTotal, 297);
 
-  const target = rollIdFor(db, 10, 3);
-  const prior = (createEntityStore(db).get("Roll", target) as { entity_version: number }).entity_version;
-  applyCorrection(db, {
-    correction: createCorrection({
-      target_entity_type: "Roll",
-      target_entity_id: target,
-      prior_entity_version: prior,
-      corrected_representation: { id: target, pinfall: 10 },
-      change: { pinfall: { from: 7, to: 10 } },
-      reason: "recount",
-      actor: "bowler-001",
-      origin_device_id: TEST_DEVICE_ID,
-    }),
-    deviceId: TEST_DEVICE_ID,
-  });
+  correctPinfall(db, 10, 3, 7, 10);
   const s1 = deriveGame(loadGameFacts(createEntityStore(db), gameId));
+  assert.equal(s1.status, "COMPLETED");
   assert.equal(s1.finalTotal, 300);
+
+  const dbOpen = openDatabase();
+  const openId = buildGame(dbOpen, [
+    ...Array.from({ length: 9 }, (_, i) => ({ frame: i + 1, rolls: [5, 3] })),
+    { frame: 10, rolls: [7, 3, 8] },
+  ]);
+  correctPinfall(dbOpen, 10, 2, 3, 2);
+  const invalid = deriveGame(loadGameFacts(createEntityStore(dbOpen), openId));
+  assert.equal(invalid.status, "DOMAIN_INVALID_REQUIRING_REPAIR");
+  assert.deepEqual(invalid.frames[9]!.deliveries, [7, 2, 8]);
+  assert.equal(invalid.finalTotal, null);
 });
 
-test("CORRECTION_AFTER_COMPLETION: a corrected completed game may derive to not-currently-complete", () => {
+test("CORRECTION_AFTER_COMPLETION: topology-breaking correction is invalid; audit remains", () => {
   const db = openDatabase();
   const gameId = buildGame(db, [
-    ...Array.from({ length: 10 }, (_, i) => ({ frame: i + 1, rolls: i === 9 ? [5, 3] : [5, 3] })),
+    ...Array.from({ length: 10 }, (_, i) => ({ frame: i + 1, rolls: [5, 3] })),
   ]);
   const completed = deriveGame(loadGameFacts(createEntityStore(db), gameId));
   assert.equal(completed.status, "COMPLETED");
   assert.equal(completed.finalTotal, 80);
 
-  // Correct a first-frame second ball so the frame's later structure changes.
-  const target = rollIdFor(db, 1, 1);
-  const prior = (createEntityStore(db).get("Roll", target) as { entity_version: number }).entity_version;
-  applyCorrection(db, {
-    correction: createCorrection({
-      target_entity_type: "Roll",
-      target_entity_id: target,
-      prior_entity_version: prior,
-      corrected_representation: { id: target, pinfall: 10 },
-      change: { pinfall: { from: 5, to: 10 } },
-      reason: "recount",
-      actor: "bowler-001",
-      origin_device_id: TEST_DEVICE_ID,
-    }),
-    deviceId: TEST_DEVICE_ID,
-  });
+  const target = correctPinfall(db, 1, 1, 5, 10);
   const rederived = deriveGame(loadGameFacts(createEntityStore(db), gameId));
-  // The game now begins with a strike; total deliveries differ, so it is no
-  // longer necessarily complete/finalized at 80. The completed evidence is
-  // preserved through the correction record, not destroyed.
-  const corrections = createCorrectionStore(db);
-  assert.equal(corrections.listForTarget("Roll", target).length, 1);
-  assert.ok(rederived.rollCount !== 20 || rederived.status !== "COMPLETED");
+  assert.equal(rederived.status, "DOMAIN_INVALID_REQUIRING_REPAIR");
+  assert.equal(rederived.finalScoreUnavailable, true);
+  assert.deepEqual(rederived.frames[0]!.deliveries, [10, 3]);
+  assert.equal(createCorrectionStore(db).listForTarget("Roll", target).length, 1);
 });
 
 test("CORRECTION_AFFECTING_LATER_LEGALITY: correcting to an impossible second-ball total surfaces DOMAIN_INVALID", () => {

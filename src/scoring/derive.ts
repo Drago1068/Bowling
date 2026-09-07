@@ -10,47 +10,45 @@ import {
 /**
  * Derive the complete game state from ordered observed roll facts.
  *
- * Deterministic two-pass algorithm over the (frame_number, roll_number, UUIDv7)
- * ordered delivery stream:
+ * Frame identity and roll position are AUTHORITATIVE (ADR-003 §9). Derivation
+ * groups facts by stored `(frame_number, roll_number)` and never reinterprets a
+ * leftover roll as a later delivery or bonus merely because a correction
+ * changed frame topology (Slice 4 P1: CORRECTION-DOWNSTREAM-LEGALITY).
  *
- *   PASS 1 (frame parse): consume deliveries into frames 1..10 per the standard
- *   ten-pin frame rules (strike = one roll in frames 1-9; tenth frame up to three).
+ * Scoring bonuses for legal frames 1–9 are taken from subsequent stored
+ * deliveries in frame order — not by flattening-and-reparsing past extra rolls
+ * that remain attached to an earlier frame.
  *
- *   PASS 2 (score): assign each frame a score only when all its bonus deliveries
- *   exist; otherwise leave it unresolved (awaiting bonus). A spare in frame N
- *   needs the next delivery; a strike needs the next two deliveries.
- *
- * Legality (ADR-003 Decision 4-4): illegality is never silently repaired. A fact
- * set that is internally illegal yields `DOMAIN_INVALID_REQUIRING_REPAIR` and all
- * observations are preserved.
+ * Legality (ADR-003 Decision 4-4): illegality is never silently repaired. Facts
+ * are preserved. A structurally illegal fact set yields
+ * `DOMAIN_INVALID_REQUIRING_REPAIR` and no final score.
  */
 export function deriveGame(facts: readonly RollFact[]): GameScores {
   const ordered = orderRollFacts(facts);
-  const deliveryStream = ordered.map((f) => f.pinfall);
-
-  if (detectStructuralIllegality(ordered)) {
-    return invalidGame(ordered.length);
-  }
   if (ordered.length === 0) {
     return emptyGame();
   }
 
-  // PASS 1: parse frames.
-  const parsed = parseFrames(deliveryStream);
-  if (parsed.status === "DOMAIN_INVALID_REQUIRING_REPAIR") {
-    const invalid = invalidGame(ordered.length);
-    return invalid;
+  const byFrame = groupByFrame(ordered);
+  if (detectNumberingIllegality(ordered) || anyFrameTopologyIllegal(byFrame)) {
+    return invalidGameFromFacts(ordered, byFrame);
   }
 
-  // PASS 2: score each frame against the full stream.
-  const frames = scoreFrames(parsed.deliveryFrames, deliveryStream);
+  const deliveryFrames: Array<{ frameNumber: number; start: number; deliveries: number[] }> = [];
+  const stream: number[] = [];
+  for (let frame = 1; frame <= FRAME_COUNT; frame++) {
+    const deliveries = (byFrame.get(frame) ?? []).map((r) => r.pinfall);
+    const start = stream.length;
+    stream.push(...deliveries);
+    deliveryFrames.push({ frameNumber: frame, start, deliveries });
+  }
 
-  const status: GameStatus =
-    parsed.status === "COMPLETED" ? "COMPLETED" : "IN_PROGRESS";
-
+  const frames = scoreFrames(deliveryFrames, stream);
+  const complete = deliveryFrames.every((f) => frameComplete(f.frameNumber, f.deliveries));
+  const status: GameStatus = complete ? "COMPLETED" : "IN_PROGRESS";
   const runningTotals = computeRunningTotals(frames);
   const finalTotal =
-    status === "COMPLETED" && frames.every((f) => f.isResolved) && frames.length === FRAME_COUNT
+    status === "COMPLETED" && frames.every((f) => f.isResolved)
       ? runningTotals[FRAME_COUNT - 1] ?? null
       : null;
 
@@ -64,112 +62,71 @@ export function deriveGame(facts: readonly RollFact[]): GameScores {
   };
 }
 
-/**
- * Parse the delivery stream into per-frame delivery slices, honoring the
- * standard ten-pin frame structure and the tenth-frame bonus rules.
- *
- * Returns the frames (each with the absolute start delivery index) and a
- * completion/invalid status.
- */
-function parseFrames(
-  stream: readonly number[],
-): {
-  deliveryFrames: Array<{ frameNumber: number; start: number; deliveries: number[] }>;
-  status: "IN_PROGRESS" | "COMPLETED" | "DOMAIN_INVALID_REQUIRING_REPAIR";
-} {
-  const frames: Array<{ frameNumber: number; start: number; deliveries: number[] }> = [];
-  let idx = 0;
-  let status: "IN_PROGRESS" | "COMPLETED" | "DOMAIN_INVALID_REQUIRING_REPAIR" = "IN_PROGRESS";
+function groupByFrame(ordered: readonly RollFact[]): Map<number, RollFact[]> {
+  const byFrame = new Map<number, RollFact[]>();
+  for (const fact of ordered) {
+    const list = byFrame.get(fact.frame_number) ?? [];
+    list.push(fact);
+    byFrame.set(fact.frame_number, list);
+  }
+  return byFrame;
+}
 
-  for (let frame = 1; frame <= FRAME_COUNT; frame++) {
-    if (idx >= stream.length) break; // no further deliveries
-
-    const start = idx;
-    const first = stream[idx]!;
-    let consumed: number;
-    let deliveries: number[];
-
-    if (frame < FRAME_COUNT) {
-      if (first === 10) {
-        consumed = 1;
-        deliveries = [10];
-      } else {
-        // Need a second roll to complete a legal non-strike frame, or an
-        // explicitly recorded zero-count means "waiting" (partial).
-        if (idx + 1 >= stream.length) {
-          // Partial: only the first roll recorded.
-          consumed = 1;
-          deliveries = [first];
-        } else {
-          const second = stream[idx + 1]!;
-          if (first + second > 10) {
-            status = "DOMAIN_INVALID_REQUIRING_REPAIR";
-            deliveries = [first, second];
-            consumed = 2;
-          } else {
-            consumed = 2;
-            deliveries = [first, second];
-          }
-        }
-      }
-    } else {
-      // Frame 10.
-      const second = idx + 1 < stream.length ? stream[idx + 1] : undefined;
-      const third = idx + 2 < stream.length ? stream[idx + 2] : undefined;
-
-      if (second === undefined) {
-        consumed = 1;
-        deliveries = [first];
-      } else if (first === 10) {
-        // Strike in tenth: up to two bonus rolls.
-        if (third === undefined) {
-          consumed = 2;
-          deliveries = [first, second];
-        } else {
-          consumed = 3;
-          deliveries = [first, second, third];
-        }
-      } else if (first + second <= 10) {
-        if (first + second === 10) {
-          // Spare: exactly one bonus roll.
-          if (third === undefined) {
-            consumed = 2;
-            deliveries = [first, second];
-          } else {
-            consumed = 3;
-            deliveries = [first, second, third];
-          }
-        } else {
-          // Open tenth: exactly two rolls.
-          if (third !== undefined) {
-            status = "DOMAIN_INVALID_REQUIRING_REPAIR";
-            deliveries = [first, second, third];
-            consumed = 3;
-          } else {
-            consumed = 2;
-            deliveries = [first, second];
-          }
-        }
-      } else {
-        status = "DOMAIN_INVALID_REQUIRING_REPAIR";
-        deliveries = [first, second];
-        consumed = 2;
-      }
+function detectNumberingIllegality(ordered: readonly RollFact[]): boolean {
+  for (const f of ordered) {
+    if (f.frame_number < 1 || f.frame_number > FRAME_COUNT) return true;
+    if (!Number.isInteger(f.pinfall) || f.pinfall < 0 || f.pinfall > 10) return true;
+  }
+  const byFrame = groupByFrame(ordered);
+  for (const [, list] of byFrame) {
+    const numbers = list.map((r) => r.roll_number).sort((a, b) => a - b);
+    for (let i = 0; i < numbers.length; i++) {
+      if (numbers[i] !== i + 1) return true;
     }
-
-    frames.push({ frameNumber: frame, start, deliveries });
-    idx += consumed;
+    if (numbers.length > 3) return true;
   }
+  return false;
+}
 
-  // Completion requires all ten frames parsed and every downstream pause resolved.
-  if (frames.length === FRAME_COUNT) {
-    const last = frames[9]!;
-    const gameComplete = frame10Complete(last.deliveries) && idx === stream.length;
-    status = gameComplete ? "COMPLETED" : status;
-    if (idx < stream.length) status = "DOMAIN_INVALID_REQUIRING_REPAIR";
+function anyFrameTopologyIllegal(byFrame: Map<number, RollFact[]>): boolean {
+  for (const [frameNumber, rolls] of byFrame) {
+    if (frameTopologyIllegal(frameNumber, rolls.map((r) => r.pinfall))) return true;
   }
+  return false;
+}
 
-  return { deliveryFrames: frames, status };
+/**
+ * Structural (topology) legality of the rolls already stored on a frame.
+ * Extra rolls after a frames 1–9 strike, or a third roll after an open tenth,
+ * are illegal even though the observations remain preserved.
+ */
+function frameTopologyIllegal(frameNumber: number, pinfalls: readonly number[]): boolean {
+  if (frameNumber < FRAME_COUNT) {
+    if (pinfalls.length > 2) return true;
+    if (pinfalls[0] === 10 && pinfalls.length > 1) return true;
+    if (pinfalls.length >= 2 && pinfalls[0]! + pinfalls[1]! > 10) return true;
+    return false;
+  }
+  if (pinfalls.length > 3) return true;
+  const first = pinfalls[0];
+  const second = pinfalls[1];
+  const third = pinfalls[2];
+  if (first === 10) {
+    return false;
+  }
+  if (second === undefined) return false;
+  if (first! + second > 10) return true;
+  if (first! + second < 10 && third !== undefined) return true;
+  return false;
+}
+
+function frameComplete(frameNumber: number, deliveries: readonly number[]): boolean {
+  if (frameNumber < FRAME_COUNT) {
+    if (deliveries.length === 0) return false;
+    if (deliveries[0] === 10) return deliveries.length === 1;
+    return deliveries.length === 2;
+  }
+  return frame10Complete(deliveries);
 }
 
 /** A tenth frame is complete when it has the exact legal roll count for its type. */
@@ -182,7 +139,6 @@ function frame10Complete(deliveries: readonly number[]): boolean {
   if (a + b === 10) {
     return deliveries.length === 3;
   }
-  // open
   return deliveries.length === 2;
 }
 
@@ -201,7 +157,6 @@ function scoreFrames(
 
     if (frameNumber < FRAME_COUNT) {
       if (isStrike) {
-        // Need next two deliveries.
         const b1 = stream[start + 1];
         const b2 = stream[start + 2];
         if (b1 !== undefined && b2 !== undefined) {
@@ -221,13 +176,8 @@ function scoreFrames(
       } else if (isOpen) {
         score = deliveries[0]! + deliveries[1]!;
         isResolved = true;
-      } else {
-        // Partial (single first roll recorded).
-        awaitingBonus = false;
-        isResolved = false;
       }
     } else {
-      // Frame 10 scored from its own deliveries.
       const a = deliveries[0];
       const b = deliveries[1];
       if (a === 10 && deliveries.length >= 2) {
@@ -284,31 +234,10 @@ function computeRunningTotals(frames: readonly FrameProjection[]): Array<number 
   return totals;
 }
 
-function detectStructuralIllegality(ordered: readonly RollFact[]): boolean {
-  for (const f of ordered) {
-    if (f.frame_number < 1 || f.frame_number > FRAME_COUNT) return true;
-    if (!Number.isInteger(f.pinfall) || f.pinfall < 0 || f.pinfall > 10) return true;
-  }
-  const byFrame = new Map<number, number[]>();
-  for (const f of ordered) {
-    const list = byFrame.get(f.frame_number) ?? [];
-    list.push(f.roll_number);
-    byFrame.set(f.frame_number, list);
-  }
-  for (const [, list] of byFrame) {
-    list.sort((a, b) => a - b);
-    for (let i = 0; i < list.length; i++) {
-      if (list[i] !== i + 1) return true;
-    }
-    if (list.length > 3) return true;
-  }
-  return false;
-}
-
-function emptyFrameProjection(frameNumber: number): FrameProjection {
+function emptyFrameProjection(frameNumber: number, deliveries: number[] = []): FrameProjection {
   return {
     frame_number: frameNumber,
-    deliveries: [],
+    deliveries,
     status: null,
     isStrike: false,
     isSpare: false,
@@ -332,15 +261,20 @@ function emptyGame(): GameScores {
   };
 }
 
-function invalidGame(rollCount: number): GameScores {
-  const frames = [];
-  for (let f = 1; f <= FRAME_COUNT; f++) frames.push(emptyFrameProjection(f));
+function invalidGameFromFacts(
+  ordered: readonly RollFact[],
+  byFrame: Map<number, RollFact[]>,
+): GameScores {
+  const frames: FrameProjection[] = [];
+  for (let f = 1; f <= FRAME_COUNT; f++) {
+    frames.push(emptyFrameProjection(f, (byFrame.get(f) ?? []).map((r) => r.pinfall)));
+  }
   return {
     frames,
     runningTotals: [],
     finalTotal: null,
     status: "DOMAIN_INVALID_REQUIRING_REPAIR",
     finalScoreUnavailable: true,
-    rollCount,
+    rollCount: ordered.length,
   };
 }
