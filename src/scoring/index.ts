@@ -13,3 +13,16 @@ export {
 export { deriveGame } from "./derive.ts";
 export { validateNextRoll, type NextRollCandidate } from "./validate.ts";
 export { loadGameFacts } from "./store.ts";
+export {
+  startGame,
+  recordRoll,
+  correctRoll,
+  loadScoringView,
+  latestGameId,
+  nextLegalSlot,
+  pinfallLegal,
+  formatScoringView,
+  type RecordedRollView,
+  type NextRollSlot,
+  type ScoringView,
+} from "./session.ts";

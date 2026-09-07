@@ -11,15 +11,10 @@ import {
   View,
 } from "react-native";
 import {
-  applyLocalMutation,
   initializeApplication,
-  newEntityMetadata,
-  newFrameId,
-  newRollId,
   recoverAfterLifecycle,
   type ApplicationInitResult,
   type NetworkAvailability,
-  type Roll,
   type SqliteDriver,
 } from "../../src/portable.ts";
 import { ensureMobileCrypto } from "./src/ensureCrypto.ts";
@@ -28,26 +23,12 @@ import {
   runExpoSqliteConformance,
   type NativeValidationReport,
 } from "./src/nativeValidation.ts";
-import {
-  buildScoreSheet,
-  demoMixedGameFacts,
-  formatScoreSheet,
-} from "./src/scoreSheet.ts";
+import { ScoringPanel } from "./src/scoringPanel.tsx";
 
 type ScreenState =
   | { phase: "loading"; note: string }
   | { phase: "ready"; result: ApplicationInitResult; note: string }
   | { phase: "failed"; result: ApplicationInitResult; note: string };
-
-function makeDiagnosticRoll(deviceId: string): Roll {
-  return {
-    ...newEntityMetadata({ id: newRollId(), origin_device_id: deviceId }),
-    entity_type: "Roll",
-    frame_id: newFrameId(),
-    roll_number: 1,
-    pinfall: 10,
-  };
-}
 
 function openPreparedDriver(): Promise<SqliteDriver> {
   ensureMobileCrypto();
@@ -64,7 +45,6 @@ export default function App() {
   const [nativeReport, setNativeReport] = useState<NativeValidationReport | null>(
     null,
   );
-  const [demoSheet, setDemoSheet] = useState<string | null>(null);
   const adapterLabel = Platform.OS === "web" ? "sql.js (web preview)" : "expo-sqlite (native)";
 
   const runInit = useCallback(
@@ -127,26 +107,6 @@ export default function App() {
     return () => sub.remove();
   }, [runInit]);
 
-  const recordLocalMutation = () => {
-    const current = screen.phase === "ready" ? screen.result : null;
-    if (!current || !current.ok || !driverRef.current) return;
-    try {
-      applyLocalMutation(driverRef.current, {
-        deviceId: current.device.device_id,
-        operation: "CREATE",
-        entity: makeDiagnosticRoll(current.device.device_id),
-        expectedEntityVersion: 0,
-      });
-      runInit("foreground", "Local mutation committed; waiting to sync");
-    } catch (err) {
-      setScreen({
-        phase: "ready",
-        result: current,
-        note: `Mutation rolled back: ${err instanceof Error ? err.message : String(err)}`,
-      });
-    }
-  };
-
   const simulateProcessRestart = () => {
     try {
       driverRef.current?.close();
@@ -162,20 +122,13 @@ export default function App() {
     setNativeReport(report);
   };
 
-  const renderDemoScoreSheet = () => {
-    // Thin offline score-sheet projection: derived solely from the demo game's
-    // observed roll facts (deterministic, non-authoritative).
-    setDemoSheet(formatScoreSheet(buildScoreSheet(demoMixedGameFacts())));
-  };
-
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar style="dark" />
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.title}>ARCH-001 diagnostic harness</Text>
         <Text style={styles.subtitle}>
-          Persistence, device identity, outbox, recovery, and a thin offline
-          score-sheet projection.
+          Persistence, recovery, and thin offline scoring (derived, non-authoritative).
         </Text>
 
         {screen.phase === "loading" ? (
@@ -222,6 +175,19 @@ export default function App() {
           </View>
         ) : null}
 
+        <ScoringPanel
+          driver={
+            screen.phase === "ready" && screen.result.ok ? driverRef.current : null
+          }
+          deviceId={
+            screen.phase === "ready" && screen.result.ok
+              ? screen.result.device.device_id
+              : null
+          }
+          enabled={screen.phase === "ready" && screen.result.ok}
+          reloadToken={screen.note}
+        />
+
         {screen.phase === "ready" && !screen.result.ok ? (
           <View style={styles.failBox}>
             <Text style={styles.failTitle}>{screen.result.status}</Text>
@@ -230,11 +196,6 @@ export default function App() {
         ) : null}
 
         <View style={styles.actions}>
-          <Button
-            label="Record local roll"
-            onPress={recordLocalMutation}
-            disabled={screen.phase !== "ready" || !screen.result.ok}
-          />
           <Button
             label="Recover from database"
             onPress={() => runInit("foreground", "Manual recovery from persistence")}
@@ -252,10 +213,6 @@ export default function App() {
           <Button
             label="Simulate process restart"
             onPress={simulateProcessRestart}
-          />
-          <Button
-            label="Show demo score sheet"
-            onPress={renderDemoScoreSheet}
           />
           {Platform.OS !== "web" ? (
             <Button
@@ -280,14 +237,6 @@ export default function App() {
                 {row.error ? `: ${row.error}` : ""}
               </Text>
             ))}
-          </View>
-        ) : null}
-        {demoSheet ? (
-          <View style={styles.card}>
-            <Text style={styles.label}>Derived score sheet (offline, non-authoritative)</Text>
-            <Text style={styles.value} selectable>
-              {demoSheet}
-            </Text>
           </View>
         ) : null}
         <Text style={styles.footnote}>
