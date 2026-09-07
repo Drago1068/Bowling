@@ -30,9 +30,18 @@ DECISION_4-1_TEN_PIN_AUTHORITY=APPROVED
 DECISION_4-4_CORRECTION_DEPENDENCY_POLICY=APPROVED
 ARCHITECTURAL_DIRECTION=ACCEPTED
 SLICE_4_REQUIREMENTS=ACCEPTED_AFTER_REQUIRED_CLARIFICATIONS
-TEN_PIN_RULE_AUTHORITY=USBC_RULES_OF_BOWLING
-RULE_REFERENCE=MUST_BE_EXACT_AND_VERSIONED_BEFORE_SCORING_IMPLEMENTATION
-RULE_REFERENCE_STATUS=NOT_YET_EVIDENCED_IMPLEMENTATION_BLOCKED_UNTIL_PINNED
+SLICE_4_ARCHITECTURE_ACCEPTED=true
+TEN_PIN_RULE_AUTHORITY=USBC_PLAYING_RULES
+RULE_AUTHORITY=UNITED_STATES_BOWLING_CONGRESS
+RULE_SET=USBC_PLAYING_RULES
+RULE_AUTHORITY_PINNED=true
+RULE_EDITION=2026-2027
+SCORING_DOMAIN=AMERICAN_TENPINS
+RULE_REFERENCE_IMMUTABLE=true
+RULE_REFERENCE_VERIFIED=true
+RULE_REFERENCE_BLOCKER=CLOSED
+RULE_PROVENANCE=docs/reference/usbc-playing-rules-2026-2027.provenance.md
+SOURCE_SHA256=4cb44a2a9d62fdf18957da2db4646e05342eebdc308cc56711a6249ad2cdddec
 ZERO_ROLL_STATE=NOT_STARTED
 LIFECYCLE_PERSISTED=false
 GOLDEN_VECTORS_PINNED=true
@@ -45,8 +54,8 @@ DEPLOYMENT_STATUS=NOT_AUTHORIZED_NOT_PERFORMED
 OPEN_P0=0_OBSERVED
 OPEN_P1=0
 OPEN_P2=0
-CURRENT_BLOCKERS=SCORING_IMPLEMENTATION_BLOCKED_UNTIL_EXACT_USBC_RULE_REFERENCE_PINNED
-NEXT_ACTION=RETURN_TO_ARCHITECTURE_AUTHORITY_FOR_SLICE_4_IMPLEMENTATION_GATE
+CURRENT_BLOCKERS=NONE
+NEXT_ACTION=RETURN_TO_ARCHITECTURE_AUTHORITY_FOR_SLICE_4_IMPLEMENTATION_AUTHORIZATION
 NEXT_AGENT=ChatGPT_ARCHITECTURE_AND_RELEASE_AUTHORITY
 LAST_UPDATED=2026-09-07_America/New_York
 SLICE_3_ACCEPTED=true
@@ -108,9 +117,9 @@ Remediation commit `c04d46930b9644a05505615170892754830a0572` (tree `69f005eff08
 
 `BOWLING_NEXT_SLICE_PLAN=ARCH-001_SLICE_4_DETERMINISTIC_OFFLINE_GAME_SCORING`. Slice 4
 requirements were accepted by Architecture Authority after required clarifications.
-No Slice 4 production implementation is authorized. Implementation remains unauthorized
-until this documentation baseline is committed and verified, and Architecture Authority
-opens a Slice 4 implementation gate.
+The USBC 2026–2027 Playing Rules authority is pinned. No Slice 4 production
+implementation is authorized until Architecture Authority opens a Slice 4
+implementation authorization gate.
 
 ### Slice 4 architecture acceptance (APPROVED requirements; implementation unauthorized)
 
@@ -118,10 +127,14 @@ opens a Slice 4 implementation gate.
   (Accepted requirements/design after required clarifications).
 - **Work package**: `BOWLING_ARCH_001_SLICE_4_ARCHITECTURE_ACCEPTANCE_CLOSURE`.
 - **Architecture Authority review**: `BOWLING_ARCH_001_SLICE_4` / `RESULT=APPROVED`.
-- **Decision 4-1**: APPROVED — `RULE_AUTHORITY=USBC_RULES_OF_BOWLING`. Exact
-  edition/version/date or immutable in-repository rules reference is not presently
-  evidenced and **must** be pinned before scoring implementation.
-  `HISTORICAL_RECOMPUTATION` must not change when later external USBC publications change.
+- **Decision 4-1**: APPROVED — `RULE_AUTHORITY=USBC_PLAYING_RULES`,
+  `RULE_EDITION=2026-2027`, `SCORING_DOMAIN=AMERICAN_TENPINS`. Official artifact
+  from `https://bowl.com/rules` →
+  `usbc-playing-rulebook-26-27.pdf`, SHA-256
+  `4cb44a2a9d62fdf18957da2db4646e05342eebdc308cc56711a6249ad2cdddec`.
+  Provenance: `docs/reference/usbc-playing-rules-2026-2027.provenance.md`.
+  Publication not committed (USBC copyright). `RULE_REFERENCE_BLOCKER=CLOSED`.
+  Future USBC editions do not mutate existing derived results.
 - **Decision 4-4**: APPROVED —
   `CORRECTION_DEPENDENCY_POLICY=PRESERVE_FACTS_AND_EXPOSE_DOMAIN_INVALID_REQUIRING_REPAIR`.
 - **Zero-roll lifecycle**: `GAME_IDENTITY_MAY_EXIST_WITH_ZERO_ROLL_FACTS=true`;
@@ -145,4 +158,18 @@ opens a Slice 4 implementation gate.
   `MIGRATIONS_CHANGED=false`, `DEPENDENCIES_CHANGED=false`,
   `SYNC_CONTRACTS_CHANGED=false`, `NAS_ACCESSED=false`,
   `OTHER_PROJECTS_ACCESSED=false`, `OTHER_PROJECTS_CHANGED=false`.
-- **Next action**: `RETURN_TO_ARCHITECTURE_AUTHORITY_FOR_SLICE_4_IMPLEMENTATION_GATE`.
+- **Next action**: `RETURN_TO_ARCHITECTURE_AUTHORITY_FOR_SLICE_4_IMPLEMENTATION_AUTHORIZATION`.
+
+### Slice 4 rule-authority pinning (CLOSED; implementation still unauthorized)
+
+- **Work package**: `BOWLING_ARCH_001_SLICE_4_RULE_AUTHORITY_PINNING`.
+- **Pinned edition**: USBC Playing Rules `2026-2027` (American Tenpins).
+- **Authoritative source**: official BOWL.com 2026–2027 rulebook PDF.
+- **SHA-256 verified** before commit:
+  `4cb44a2a9d62fdf18957da2db4646e05342eebdc308cc56711a6249ad2cdddec`.
+- **Recorded against**: Slice 4 architecture acceptance commit
+  `67f91ebe864bdb5d5018e73f91809850272bd5b2` plus this pinning commit.
+- **Forbidden-change verification for this work package**: `PRODUCTION_CODE_CHANGED=false`,
+  `MIGRATIONS_CHANGED=false`, `DEPENDENCIES_CHANGED=false`,
+  `SYNC_CONTRACTS_CHANGED=false`, `NAS_ACCESSED=false`,
+  `OTHER_PROJECTS_ACCESSED=false`, `OTHER_PROJECTS_CHANGED=false`.

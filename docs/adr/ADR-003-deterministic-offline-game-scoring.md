@@ -55,9 +55,8 @@ ten-pin bowling game **offline**, using durable observed bowling facts,
 deterministic derived scoring, file-backed restart recovery, and the already
 accepted (Slice 1–3) synchronization architecture.
 
-The scoring rule authority is USBC Rules of Bowling (Decision 4-1 APPROVED);
-the exact edition/version/date or immutable in-repository rules reference must
-be pinned before scoring implementation (see section 3). Scoring is never
+The scoring rule authority is the pinned USBC Playing Rules, edition
+`2026-2027` (Decision 4-1 APPROVED; see section 3). Scoring is never
 re-derived from client behavior, and scoring output is never synchronized or
 treated as an authoritative fact.
 
@@ -71,28 +70,35 @@ authorized slice"); ADR-002 establishes that the server never trusts
 client-derived scores but does not define scoring rules; README.md states there
 is no scoring UI or logic; no existing domain test encodes scoring rules.
 
-**Architecture Authority Decision 4-1: APPROVED.**
+**Architecture Authority Decision 4-1: APPROVED. Rule reference pinned.**
 
 ```ini
-RULE_AUTHORITY=USBC_RULES_OF_BOWLING
-RULE_REFERENCE=MUST_BE_EXACT_AND_VERSIONED_BEFORE_SCORING_IMPLEMENTATION
-HISTORICAL_RECOMPUTATION=MUST_NOT_CHANGE_WHEN_EXTERNAL_RULES_CHANGE
+RULE_AUTHORITY=USBC_PLAYING_RULES
+RULE_EDITION=2026-2027
+SCORING_DOMAIN=AMERICAN_TENPINS
+RULE_REFERENCE_IMMUTABLE=true
+HISTORICAL_RECOMPUTATION_RULESET_PINNED=true
+EXTERNAL_FUTURE_RULE_CHANGES_DO_NOT_MUTATE_EXISTING_RESULTS=true
 ```
 
-USBC (United States Bowling Congress) Rules of Bowling is the adopted scoring-rule
-authority. This repository does **not** presently contain independently verified
-evidence of an exact USBC Rules of Bowling edition, version, or publication date.
-This record does **not** invent an edition number.
+Governing body: United States Bowling Congress (`RULE_AUTHORITY=UNITED_STATES_BOWLING_CONGRESS`).
+Rule set: USBC Playing Rules, edition **2026-2027**. Scoring domain: American Tenpins
+(Chapter 2, Rule 2 of that edition).
 
-The implementation baseline **must** identify an exact USBC Rules of Bowling
-edition/version/date **or** an immutable in-repository rules reference before any
-scoring implementation proceeds. Scoring implementation is **blocked** until that
-exact reference is pinned.
+Immutable in-repository provenance (artifact **not** stored; USBC copyright):
+`docs/reference/usbc-playing-rules-2026-2027.provenance.md`
 
-Historical recomputation of accepted roll facts **must not** change when later
-external USBC publications change. The pinned exact reference is an input to
-deterministic recomputation: the same facts under the same pinned rule reference
-recompute identically.
+```ini
+SOURCE_URL=https://images.bowl.com/bowl/media/assets/usbc/rules/general%20pdfs/usbc-playing-rulebook-26-27.pdf
+LISTING_URL=https://bowl.com/rules
+RETRIEVED_AT=2026-09-07T13:43:00Z
+SOURCE_SHA256=4cb44a2a9d62fdf18957da2db4646e05342eebdc308cc56711a6249ad2cdddec
+```
+
+Do not substitute an unversioned phrase such as “current edition.” The scoring
+engine must not silently change behavior when USBC publishes a later edition.
+Future rule adoption requires an explicit architecture/version change. The same
+accepted roll facts under this pinned 2026–2027 reference recompute identically.
 
 If Architecture Authority later determines international scope, World Bowling
 (WB) Rules remain an alternative authority; they are not adopted here. That
@@ -658,13 +664,14 @@ deterministic automated gates.
 - QUESTION: Which rules authority defines legal ten-pin scoring?
 - OPTIONS: (a) USBC Rules of Bowling; (b) World Bowling (WB) Rules
 - RECOMMENDED_OPTION: (a) USBC Rules of Bowling
-- DECISION: APPROVED — (a) `RULE_AUTHORITY=USBC_RULES_OF_BOWLING`
+- DECISION: APPROVED — (a) `RULE_AUTHORITY=USBC_PLAYING_RULES`
+  (United States Bowling Congress), `RULE_EDITION=2026-2027`,
+  `SCORING_DOMAIN=AMERICAN_TENPINS`
 - RATIONALE: recognized standard authority for the United States-focused
   offline-first product; normative scoring/legality.
-- RULE_REFERENCE: must be an exact USBC Rules of Bowling edition/version/date
-  or an immutable in-repository rules reference, pinned before scoring
-  implementation. No edition is invented here; implementation is blocked until
-  the exact reference is evidenced and pinned.
+- RULE_REFERENCE: pinned to the official BOWL.com 2026–2027 Playing Rules PDF
+  (`SOURCE_SHA256=4cb44a2a9d62fdf18957da2db4646e05342eebdc308cc56711a6249ad2cdddec`).
+  Provenance: `docs/reference/usbc-playing-rules-2026-2027.provenance.md`.
 - HISTORICAL_RECOMPUTATION: must not change when later external USBC publications change.
 - ARCHITECTURE_IMPACT: the pinned exact rule reference is an input to
   deterministic derivation; no authoritative score storage.
@@ -790,11 +797,12 @@ PRODUCTION_IMPLEMENTATION_AUTHORIZED=false
   lifecycle, pinned golden roll vectors).
 - `IMPLEMENTATION_AUTHORIZED=false` until Architecture Authority opens a Slice 4
   implementation gate against this committed documentation baseline.
-- Scoring implementation remains blocked until an exact USBC Rules of Bowling
-  edition/version/date or immutable in-repository rules reference is pinned.
+- Rule-reference pinning is **closed**: `RULE_EDITION=2026-2027`,
+  `RULE_REFERENCE_IMMUTABLE=true`. Scoring implementation is still unauthorized
+  until that implementation gate.
 - `CURRENT_GATE=ARCHITECTURE_ACCEPTANCE`
 - `GATE_STATUS=APPROVED_IMPLEMENTATION_UNAUTHORIZED`
-- `NEXT_ACTION=RETURN_TO_ARCHITECTURE_AUTHORITY_FOR_SLICE_4_IMPLEMENTATION_GATE`
+- `NEXT_ACTION=RETURN_TO_ARCHITECTURE_AUTHORITY_FOR_SLICE_4_IMPLEMENTATION_AUTHORIZATION`
 
 Nothing in this document rewrites, amends, or re-opens the recorded Slice 3
 independent review verdict (HOLD) or the Slice 3 closure evidence. Accepted
@@ -804,10 +812,9 @@ Slice 1–3 application bytes and sync contracts remain frozen.
 
 ## 29. Unresolved approval items
 
-1. Ten-pin rules authority adoption (`DECISION_4-1`) — **APPROVED**
-   (`RULE_AUTHORITY=USBC_RULES_OF_BOWLING`). Exact edition/version/date or
-   immutable in-repository reference is **not yet evidenced** and must be pinned
-   before scoring implementation.
+1. Ten-pin rules authority adoption (`DECISION_4-1`) — **APPROVED** and
+   **pinned**: `RULE_AUTHORITY=USBC_PLAYING_RULES`, `RULE_EDITION=2026-2027`.
+   Immutable provenance is `docs/reference/usbc-playing-rules-2026-2027.provenance.md`.
 2. Correction dependency policy (`DECISION_4-4`) — **APPROVED** (preserve facts
    and expose `DOMAIN_INVALID_REQUIRING_REPAIR`).
 3. `DECISION_4-2`, `DECISION_4-3`, `DECISION_4-5`, `DECISION_4-6`, `DECISION_4-7`
