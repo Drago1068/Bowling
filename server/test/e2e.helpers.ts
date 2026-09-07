@@ -216,7 +216,36 @@ export async function deleteSqliteFiles(path: string): Promise<void> {
   }
 }
 
-/** Close a mobile handle; no deletion. For reopen/restart tests. */
-export function closeMobile(mobile: MobileHandle): void {
-  mobile.driver.close();
+/** Close a mobile handle; no deletion. For reopen/restart tests. Idempotent. */
+export function closeMobile(mobile: MobileHandle | undefined | null): void {
+  if (!mobile) return;
+  try {
+    mobile.driver.close();
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (/already closed|not open/i.test(message)) return;
+    throw err;
+  }
+}
+
+/** Close a server application pool. Idempotent for already-ended pools. */
+export async function closeApplication(app: { close(): Promise<void> } | undefined | null): Promise<void> {
+  if (!app) return;
+  try {
+    await app.close();
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (/end on pool more than once|Cannot use a pool after calling end/i.test(message)) return;
+    throw err;
+  }
+}
+
+/** Close tracked mobiles (and optional app) before deleting SQLite files. */
+export async function disposeTestResources(
+  mobiles: Array<MobileHandle | undefined | null>,
+  options: { path?: string; app?: { close(): Promise<void> } | undefined | null } = {},
+): Promise<void> {
+  for (const mobile of mobiles) closeMobile(mobile);
+  await closeApplication(options.app);
+  if (options.path) await deleteSqliteFiles(options.path);
 }

@@ -27,8 +27,12 @@ export function serverReceiptKey(submissionId: string): string {
 export interface SyncFaults {
   /** Throw to simulate a crash before a push request is sent. */
   beforePushSend?: (submissionId: string) => void;
+  /** Throw after ACCEPTED is written, before the durable server receipt. */
+  afterAcceptedBeforeReceipt?: (submissionId: string) => void;
   /** Throw to simulate a crash after the server accepts but before local confirm. */
   afterServerResultBeforeConfirm?: (submissionId: string) => void;
+  /** Throw after the outbox CONFLICT state is written, before the conflict row. */
+  afterConflictStateBeforeRecord?: (submissionId: string) => void;
   /** Throw to simulate a crash after a pull page downloads but before local apply. */
   afterPullDownloadBeforeApply?: () => void;
   /** Throw to simulate a crash during local apply, before the checkpoint commit. */
@@ -153,9 +157,12 @@ export function createSyncCoordinator(options: CoordinatorOptions): SyncCoordina
             server_change_cursor: result.server_change_cursor,
             server_committed_at: result.server_committed_at,
           };
-          stores.outbox.setState(sid, "ACCEPTED");
-          stores.checkpoint.set(serverReceiptKey(sid), JSON.stringify(receipt));
-          stores.checkpoint.set("last_server_cursor", String(result.server_change_cursor));
+          withTransaction(() => {
+            stores.outbox.setState(sid, "ACCEPTED");
+            faults.afterAcceptedBeforeReceipt?.(sid);
+            stores.checkpoint.set(serverReceiptKey(sid), JSON.stringify(receipt));
+            stores.checkpoint.set("last_server_cursor", String(result.server_change_cursor));
+          });
           report.lastServerCursor = result.server_change_cursor;
           faults.afterServerResultBeforeConfirm?.(sid);
           stores.outbox.setState(sid, "CONFIRMED");
@@ -163,17 +170,20 @@ export function createSyncCoordinator(options: CoordinatorOptions): SyncCoordina
           break;
         }
         case "CONFLICT": {
-          stores.outbox.setState(sid, "CONFLICT");
-          stores.conflicts.record({
-            conflict_id: result.conflict_id,
-            submission_id: sid,
-            entity_type: entry.envelope.entity_type,
-            entity_id: entry.envelope.entity_id,
-            expected_entity_version: result.expected_entity_version,
-            canonical_entity_version: result.canonical_entity_version,
-            local_payload: entry.envelope.payload,
-            status: "OPEN",
-            created_at: now().toISOString(),
+          withTransaction(() => {
+            stores.outbox.setState(sid, "CONFLICT");
+            faults.afterConflictStateBeforeRecord?.(sid);
+            stores.conflicts.record({
+              conflict_id: result.conflict_id,
+              submission_id: sid,
+              entity_type: entry.envelope.entity_type,
+              entity_id: entry.envelope.entity_id,
+              expected_entity_version: result.expected_entity_version,
+              canonical_entity_version: result.canonical_entity_version,
+              local_payload: entry.envelope.payload,
+              status: "OPEN",
+              created_at: now().toISOString(),
+            });
           });
           report.conflicts += 1;
           break;
