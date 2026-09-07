@@ -102,3 +102,4 @@ export {
 } from "./persistence/lifecycle.ts";
 export { getSecureRandomBytes, assertSecureRandomAvailable } from "./platform/random.ts";
 export { sha256Utf8Hex, sha256Bytes } from "./platform/sha256.ts";
+export * from "./scoring/index.ts";

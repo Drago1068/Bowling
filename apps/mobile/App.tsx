@@ -28,6 +28,11 @@ import {
   runExpoSqliteConformance,
   type NativeValidationReport,
 } from "./src/nativeValidation.ts";
+import {
+  buildScoreSheet,
+  demoMixedGameFacts,
+  formatScoreSheet,
+} from "./src/scoreSheet.ts";
 
 type ScreenState =
   | { phase: "loading"; note: string }
@@ -59,6 +64,7 @@ export default function App() {
   const [nativeReport, setNativeReport] = useState<NativeValidationReport | null>(
     null,
   );
+  const [demoSheet, setDemoSheet] = useState<string | null>(null);
   const adapterLabel = Platform.OS === "web" ? "sql.js (web preview)" : "expo-sqlite (native)";
 
   const runInit = useCallback(
@@ -156,13 +162,20 @@ export default function App() {
     setNativeReport(report);
   };
 
+  const renderDemoScoreSheet = () => {
+    // Thin offline score-sheet projection: derived solely from the demo game's
+    // observed roll facts (deterministic, non-authoritative).
+    setDemoSheet(formatScoreSheet(buildScoreSheet(demoMixedGameFacts())));
+  };
+
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar style="dark" />
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.title}>ARCH-001 diagnostic harness</Text>
         <Text style={styles.subtitle}>
-          Persistence, device identity, outbox, and recovery only. No scoring UI.
+          Persistence, device identity, outbox, recovery, and a thin offline
+          score-sheet projection.
         </Text>
 
         {screen.phase === "loading" ? (
@@ -240,6 +253,10 @@ export default function App() {
             label="Simulate process restart"
             onPress={simulateProcessRestart}
           />
+          <Button
+            label="Show demo score sheet"
+            onPress={renderDemoScoreSheet}
+          />
           {Platform.OS !== "web" ? (
             <Button
               label="Run expo-sqlite conformance"
@@ -263,6 +280,14 @@ export default function App() {
                 {row.error ? `: ${row.error}` : ""}
               </Text>
             ))}
+          </View>
+        ) : null}
+        {demoSheet ? (
+          <View style={styles.card}>
+            <Text style={styles.label}>Derived score sheet (offline, non-authoritative)</Text>
+            <Text style={styles.value} selectable>
+              {demoSheet}
+            </Text>
           </View>
         ) : null}
         <Text style={styles.footnote}>
