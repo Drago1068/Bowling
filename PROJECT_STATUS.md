@@ -9,23 +9,30 @@ CANONICAL_REPOSITORY=Drago1068/Bowling
 CANONICAL_LOCAL_PATH=C:\Users\Drago\Documents\Bowling
 REMOTE_ORIGIN=https://github.com/Drago1068/Bowling.git
 DEFAULT_BRANCH=arch/001-domain-sync-foundation
-CURRENT_BRANCH=arch/001-domain-sync-foundation
+CURRENT_BRANCH=arch/001-end-to-end-sync
 REVIEWED_SOURCE_HEAD=4077c2bf10d883f64559e314f2a5d05fb1769b0f
 REVIEWED_SOURCE_TREE=38095255d1d596f5a39f71768d77660c0ad4fa1d
 REMEDIATION_HEAD=c04d46930b9644a05505615170892754830a0572
 REMEDIATION_TREE=69f005eff08c8991bbc539e4c27c1a8c84b803b9
-CURRENT_HEAD=c04d46930b9644a05505615170892754830a0572
-TREE_HASH=69f005eff08c8991bbc539e4c27c1a8c84b803b9
+SLICE_4_NATIVE_ACCEPTANCE=d55743ea0bbcfae28755cd2d19bc6d44eecf39de
+CURRENT_HEAD=d55743ea0bbcfae28755cd2d19bc6d44eecf39de
 CURRENT_ARCHITECTURE=ARCH-001
 CURRENT_SLICE=ARCH-001_SLICE_4_DETERMINISTIC_OFFLINE_GAME_SCORING
-CURRENT_GATE=ARCHITECTURE_ACCEPTANCE
-GATE_STATUS=APPROVED_IMPLEMENTATION_UNAUTHORIZED
+ARCH_001_SLICE_4=FORMALLY_CLOSED
+ARCH_001_SLICE_4_IMPLEMENTATION_ACCEPTED=true
+ARCH_001_SLICE_4_DEVICE_ACCEPTANCE=PASS
+CURRENT_ACCEPTED_CAPABILITY=DETERMINISTIC_OFFLINE_SINGLE_BOWLER_TEN_PIN_GAME_SCORING
+CURRENT_GATE=POST_SLICE_4_ACCEPTED_BASELINE
+GATE_STATUS=SLICE_4_FORMALLY_CLOSED
 SLICE_4_SPEC=docs/adr/ADR-003-deterministic-offline-game-scoring.md
-SLICE_4_IMPLEMENTATION_AUTHORIZED=false
+SLICE_4_EVIDENCE=docs/evidence/arch-001-slice-4-formal-closure.md
+SLICE_4_IMPLEMENTATION_AUTHORIZED=true
+SLICE_4_IMPLEMENTATION_ACCEPTED=true
+SLICE_4_FORMALLY_CLOSED=true
 PRODUCTION_IMPLEMENTATION_AUTHORIZED=false
 DEVICE_ACCEPTANCE_REQUIRED=true
 ARCHITECTURE_AUTHORITY_REVIEW=BOWLING_ARCH_001_SLICE_4
-ARCHITECTURE_AUTHORITY_RESULT=APPROVED
+ARCHITECTURE_AUTHORITY_RESULT=PASS
 DECISION_4-1_TEN_PIN_AUTHORITY=APPROVED
 DECISION_4-4_CORRECTION_DEPENDENCY_POLICY=APPROVED
 ARCHITECTURAL_DIRECTION=ACCEPTED
@@ -46,7 +53,8 @@ ZERO_ROLL_STATE=NOT_STARTED
 LIFECYCLE_PERSISTED=false
 GOLDEN_VECTORS_PINNED=true
 LAST_ACCEPTED_RELEASE=NOT_VERIFIED
-LAST_ACCEPTED_COMMIT=c04d46930b9644a05505615170892754830a0572
+LAST_ACCEPTED_APPLICATION_COMMIT=d55743ea0bbcfae28755cd2d19bc6d44eecf39de
+LAST_ACCEPTED_COMMIT=d55743ea0bbcfae28755cd2d19bc6d44eecf39de
 TEST_STATUS=EXECUTABLE_GATES_PASS
 SYNC_STATUS=CONFLICT_AND_ACCEPTED_LOCAL_WRITES_ATOMIC
 MOBILE_STATUS=AUTHORITATIVE_TYPECHECK_PASS
@@ -55,9 +63,9 @@ OPEN_P0=0_OBSERVED
 OPEN_P1=0
 OPEN_P2=0
 CURRENT_BLOCKERS=NONE
-NEXT_ACTION=RETURN_TO_ARCHITECTURE_AUTHORITY_FOR_SLICE_4_IMPLEMENTATION_AUTHORIZATION
+NEXT_ACTION=RETURN_TO_ARCHITECTURE_AUTHORITY_FOR_POST_SLICE_4_BASELINE_INTEGRATION_DECISION
 NEXT_AGENT=ChatGPT_ARCHITECTURE_AND_RELEASE_AUTHORITY
-LAST_UPDATED=2026-09-07_America/New_York
+LAST_UPDATED=2026-09-08_America/New_York
 SLICE_3_ACCEPTED=true
 INDEPENDENT_REVIEW_VERDICT=HOLD_NOT_CLEAN
 FINDING_CLOSURE=THREE_RECORDED_FINDINGS_CLOSED
@@ -65,8 +73,10 @@ MERGE_COMMIT=c04d46930b9644a05505615170892754830a0572
 MERGE_STYLE=FAST_FORWARD
 INTEGRATION_BRANCH=arch/001-domain-sync-foundation
 RELEASE_TAG=NOT_CREATED
+SLICE_4_ACCEPTANCE_TAG=v0.4.0-arch001-slice4
 POST_MERGE_SMOKE=PASS
 BOWLING_NEXT_SLICE_PLAN=NOT_YET_ESTABLISHED
+NEXT_SLICE=NOT_AUTHORIZED
 NEXT_SLICE_IMPLEMENTATION_AUTHORIZED=false
 NAS_ACCESSED=false
 OTHER_PROJECTS_ACCESSED=false
@@ -115,11 +125,10 @@ Remediation commit `c04d46930b9644a05505615170892754830a0572` (tree `69f005eff08
 
 ## Forward planning boundary
 
-`BOWLING_NEXT_SLICE_PLAN=ARCH-001_SLICE_4_DETERMINISTIC_OFFLINE_GAME_SCORING`. Slice 4
-requirements were accepted by Architecture Authority after required clarifications.
-The USBC 2026–2027 Playing Rules authority is pinned. No Slice 4 production
-implementation is authorized until Architecture Authority opens a Slice 4
-implementation authorization gate.
+`CURRENT_GATE=POST_SLICE_4_ACCEPTED_BASELINE`. Slice 4 is **formally closed**.
+`NEXT_SLICE=NOT_AUTHORIZED`. No Slice 5 requirements are established here.
+Merge of `arch/001-end-to-end-sync` into the default branch is a separate
+Architecture Authority gate. No production release or deployment is authorized.
 
 ### Slice 4 architecture acceptance (APPROVED requirements; implementation unauthorized)
 
@@ -173,3 +182,38 @@ implementation authorization gate.
   `MIGRATIONS_CHANGED=false`, `DEPENDENCIES_CHANGED=false`,
   `SYNC_CONTRACTS_CHANGED=false`, `NAS_ACCESSED=false`,
   `OTHER_PROJECTS_ACCESSED=false`, `OTHER_PROJECTS_CHANGED=false`.
+
+### Slice 4 implementation, P1 remediation, and device acceptance (historical then closed)
+
+These events remain on the record. HOLDs are not rewritten as if they did not occur.
+
+- **Implementation** `13c2da002fbab72a7dd63ab0c9363ff06a5f1477` — deterministic
+  one-bowler offline ten-pin scoring against ADR-003.
+- **P1 finding (historical)**: `SLICE4-P1-CORRECTION-DOWNSTREAM-LEGALITY` —
+  leftover second-ball facts after a topology-changing correction must not be
+  flattened into strike bonuses. **Final status: CLOSED** on
+  `9fbb6f8f61955a2ee0d775b685295e1d4017566d`.
+- **Initial device acceptance: HOLD** at `9fbb6f8` —
+  `INITIAL_DEVICE_HOLD_REASON=ADB_AND_MOBILE_ACCEPTANCE_ENABLEMENT` (ADB not
+  `device`; thin UI did not expose the acceptance path).
+- **Mobile enablement** `b84646b169e32375131d417cd20c97b74fc49a6c` closed the
+  acceptance-flow finding; device RSA authorization remained open.
+- **Native Android enablement and final device PASS**
+  `d55743ea0bbcfae28755cd2d19bc6d44eecf39de` on Samsung SM-S936U (Android 16,
+  serial `R3CY40E6FVJ`), package `com.drago1068.bowling`, **debug** APK (not a
+  production release).
+
+### Slice 4 formal closure (this work package)
+
+- **Work package**: `BOWLING_ARCH_001_SLICE_4_FORMAL_CLOSURE`.
+- **Evidence**: `docs/evidence/arch-001-slice-4-formal-closure.md`.
+- **Architecture Authority**: `RESULT=PASS`;
+  `SLICE_4_IMPLEMENTATION_ACCEPTED=true`; `SLICE_4_FORMALLY_CLOSED=true`;
+  `SLICE_5_IMPLEMENTATION_AUTHORIZED=false`.
+- **Automated**: `ROOT_TESTS=141/141_PASS`, `SERVER_TESTS=39/39_PASS`,
+  `TYPECHECK=PASS`, `MOBILE_TYPECHECK=PASS`, `SLICE_3_REGRESSION=PASS`.
+  Goldens: 300 / 150 / 0 / 80 / 169.
+- **Acceptance tag** (annotated, on this closure commit):
+  `v0.4.0-arch001-slice4`.
+- **Not performed**: merge, production release, deployment, NAS access,
+  other projects, Slice 5.

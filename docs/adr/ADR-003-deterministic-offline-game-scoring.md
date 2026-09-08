@@ -822,3 +822,19 @@ Slice 1–3 application bytes and sync contracts remain frozen.
    reopen via existing corrections; `occurred_at` not required; frame identity
    authoritative / semantics derived; `(frame_number, roll_number, UUIDv7
    tiebreak)` ordering) unless Architecture Authority later overrides.
+
+---
+
+## 30. Formal Slice 4 closure (additive; does not rewrite §28)
+
+Section 28 remains the architecture-acceptance snapshot
+(`APPROVED_IMPLEMENTATION_UNAUTHORIZED` at that time). Architecture Authority
+later authorized implementation, closed P1, and accepted physical-device
+evidence. Formal closure is recorded in `PROJECT_STATUS.md` and
+`docs/evidence/arch-001-slice-4-formal-closure.md`.
+
+```ini
+SLICE_4_FORMALLY_CLOSED=true
+SLICE_4_IMPLEMENTATION_ACCEPTED=true
+SLICE_5_IMPLEMENTATION_AUTHORIZED=false
+```
