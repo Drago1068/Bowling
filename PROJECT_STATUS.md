@@ -9,23 +9,36 @@ CANONICAL_REPOSITORY=Drago1068/Bowling
 CANONICAL_LOCAL_PATH=C:\Users\Drago\Documents\Bowling
 REMOTE_ORIGIN=https://github.com/Drago1068/Bowling.git
 DEFAULT_BRANCH=arch/001-domain-sync-foundation
-CURRENT_BRANCH=arch/001-end-to-end-sync
+CURRENT_BRANCH=codex/arch-001-slice-5-history-resume
 REVIEWED_SOURCE_HEAD=4077c2bf10d883f64559e314f2a5d05fb1769b0f
 REVIEWED_SOURCE_TREE=38095255d1d596f5a39f71768d77660c0ad4fa1d
 REMEDIATION_HEAD=c04d46930b9644a05505615170892754830a0572
 REMEDIATION_TREE=69f005eff08c8991bbc539e4c27c1a8c84b803b9
 SLICE_4_NATIVE_ACCEPTANCE=d55743ea0bbcfae28755cd2d19bc6d44eecf39de
-CURRENT_HEAD=d55743ea0bbcfae28755cd2d19bc6d44eecf39de
+CURRENT_HEAD=9a789b8ccd9b7067e84e161d8bcd8b1fd954dca4
 CURRENT_ARCHITECTURE=ARCH-001
-CURRENT_SLICE=ARCH-001_SLICE_4_DETERMINISTIC_OFFLINE_GAME_SCORING
+CURRENT_SLICE=ARCH-001_SLICE_5_OFFLINE_GAME_HISTORY_AND_RESUME
 ARCH_001_SLICE_4=FORMALLY_CLOSED
 ARCH_001_SLICE_4_IMPLEMENTATION_ACCEPTED=true
 ARCH_001_SLICE_4_DEVICE_ACCEPTANCE=PASS
-CURRENT_ACCEPTED_CAPABILITY=DETERMINISTIC_OFFLINE_SINGLE_BOWLER_TEN_PIN_GAME_SCORING
-CURRENT_GATE=POST_SLICE_4_ACCEPTED_BASELINE
-GATE_STATUS=SLICE_4_FORMALLY_CLOSED
+CURRENT_ACCEPTED_CAPABILITY=DETERMINISTIC_OFFLINE_SINGLE_BOWLER_TEN_PIN_SCORING_WITH_HISTORY_RESUME
+CURRENT_GATE=SLICE_5_FORMALLY_CLOSED_INTEGRATION_PENDING
+GATE_STATUS=SLICE_5_FORMALLY_CLOSED_INTEGRATION_PENDING
 SLICE_4_SPEC=docs/adr/ADR-003-deterministic-offline-game-scoring.md
 SLICE_4_EVIDENCE=docs/evidence/arch-001-slice-4-formal-closure.md
+SLICE_4_BASELINE_COMMIT=9a789b8ccd9b7067e84e161d8bcd8b1fd954dca4
+SLICE_5_SPEC=docs/adr/ADR-004-offline-game-history-and-resume.md
+SLICE_5_REQUIREMENTS=ACCEPTED
+SLICE_5_IMPLEMENTATION_AUTHORIZED=true
+SLICE_5_IMPLEMENTATION_ACCEPTED=true
+SLICE_5_FORMALLY_CLOSED=true
+SLICE_5_EVIDENCE=docs/evidence/arch-001-slice-5-implementation.md
+SLICE_5_AUTOMATED_ACCEPTANCE=PASS
+SLICE_5_PHYSICAL_DEVICE_ACCEPTANCE=PASS
+SLICE_5_OFFLINE_ACCEPTANCE=PASS
+SLICE_5_INTEGRATION_PENDING=true
+SLICE_5_PRODUCTION_RELEASE=false
+SLICE_6_IMPLEMENTATION_AUTHORIZED=false
 SLICE_4_IMPLEMENTATION_AUTHORIZED=true
 SLICE_4_IMPLEMENTATION_ACCEPTED=true
 SLICE_4_FORMALLY_CLOSED=true
@@ -54,7 +67,7 @@ LIFECYCLE_PERSISTED=false
 GOLDEN_VECTORS_PINNED=true
 LAST_ACCEPTED_RELEASE=NOT_VERIFIED
 LAST_ACCEPTED_APPLICATION_COMMIT=d55743ea0bbcfae28755cd2d19bc6d44eecf39de
-LAST_ACCEPTED_COMMIT=d55743ea0bbcfae28755cd2d19bc6d44eecf39de
+LAST_ACCEPTED_COMMIT=9a789b8ccd9b7067e84e161d8bcd8b1fd954dca4
 TEST_STATUS=EXECUTABLE_GATES_PASS
 SYNC_STATUS=CONFLICT_AND_ACCEPTED_LOCAL_WRITES_ATOMIC
 MOBILE_STATUS=AUTHORITATIVE_TYPECHECK_PASS
@@ -63,9 +76,13 @@ OPEN_P0=0_OBSERVED
 OPEN_P1=0
 OPEN_P2=0
 CURRENT_BLOCKERS=NONE
-NEXT_ACTION=RETURN_TO_ARCHITECTURE_AUTHORITY_FOR_POST_SLICE_4_BASELINE_INTEGRATION_DECISION
+NEXT_ACTION=POST_SLICE_5_BASELINE_INTEGRATION_REVIEW
 NEXT_AGENT=ChatGPT_ARCHITECTURE_AND_RELEASE_AUTHORITY
-LAST_UPDATED=2026-09-08_America/New_York
+LAST_UPDATED=2026-09-11_America/New_York
+SLICE_5_GAME_LABEL=LOCAL_CREATION_DATE_AND_TIME
+SLICE_5_RESTART_DEFAULT=NEWEST_GAME
+SLICE_5_DIAGNOSTIC_HARNESS=RETAIN_EXISTING_CONTROLS
+SLICE_5_BOWLER_PROFILE=NOT_REQUIRED
 SLICE_3_ACCEPTED=true
 INDEPENDENT_REVIEW_VERDICT=HOLD_NOT_CLEAN
 FINDING_CLOSURE=THREE_RECORDED_FINDINGS_CLOSED
@@ -75,9 +92,9 @@ INTEGRATION_BRANCH=arch/001-domain-sync-foundation
 RELEASE_TAG=NOT_CREATED
 SLICE_4_ACCEPTANCE_TAG=v0.4.0-arch001-slice4
 POST_MERGE_SMOKE=PASS
-BOWLING_NEXT_SLICE_PLAN=NOT_YET_ESTABLISHED
-NEXT_SLICE=NOT_AUTHORIZED
-NEXT_SLICE_IMPLEMENTATION_AUTHORIZED=false
+BOWLING_NEXT_SLICE_PLAN=ARCH-001_SLICE_5_OFFLINE_GAME_HISTORY_AND_RESUME
+NEXT_SLICE=ARCH-001_SLICE_5_OFFLINE_GAME_HISTORY_AND_RESUME
+NEXT_SLICE_IMPLEMENTATION_AUTHORIZED=true
 NAS_ACCESSED=false
 OTHER_PROJECTS_ACCESSED=false
 OTHER_PROJECTS_CHANGED=false
@@ -125,10 +142,19 @@ Remediation commit `c04d46930b9644a05505615170892754830a0572` (tree `69f005eff08
 
 ## Forward planning boundary
 
-`CURRENT_GATE=POST_SLICE_4_ACCEPTED_BASELINE`. Slice 4 is **formally closed**.
-`NEXT_SLICE=NOT_AUTHORIZED`. No Slice 5 requirements are established here.
-Merge of `arch/001-end-to-end-sync` into the default branch is a separate
-Architecture Authority gate. No production release or deployment is authorized.
+`CURRENT_GATE=SLICE_5_FORMALLY_CLOSED_INTEGRATION_PENDING`.
+Slice 4 remains formally closed on `9a789b8` / `v0.4.0-arch001-slice4`.
+Slice 5 is formally closed on feature branch
+`codex/arch-001-slice-5-history-resume` (parent `9a789b8`). Integration to
+`arch/001-domain-sync-foundation` is pending a separate read-only review.
+`PRODUCTION_RELEASE=false`. `SLICE_6_IMPLEMENTATION_AUTHORIZED=false`.
+The earlier debug-APK force-stop/relaunch HOLD (`DEBUG_ARTIFACT_REQUIRES_METRO`)
+and the Slice 4 initial ADB device HOLD remain on the record and are not
+rewritten as earlier PASS. A later local `assembleRelease` / `export:embed`
+acceptance APK (SHA-256
+`0038f8f8a543ce95c77d08b43b0ffd57ef63abcde6eb87b42e4b571778e2bca7`) satisfied
+offline cold-start; it is not a production store release. No merge, push, tag,
+or deployment is authorized in this package.
 
 ### Slice 4 architecture acceptance (APPROVED requirements; implementation unauthorized)
 
@@ -217,3 +243,103 @@ These events remain on the record. HOLDs are not rewritten as if they did not oc
   `v0.4.0-arch001-slice4`.
 - **Not performed**: merge, production release, deployment, NAS access,
   other projects, Slice 5.
+
+### Slice 5 requirements acceptance (implementation unauthorized)
+
+- **Work package**: `BOWLING_SLICE_5_REQUIREMENTS_ACCEPTANCE`.
+- **Specification**: `docs/adr/ADR-004-offline-game-history-and-resume.md`.
+- **Against verified Slice 4 baseline**: `9a789b8` /
+  `v0.4.0-arch001-slice4`.
+- **Product decisions**: `GAME_LABEL=LOCAL_CREATION_DATE_AND_TIME`,
+  `RESTART_DEFAULT=NEWEST_GAME`,
+  `DIAGNOSTIC_HARNESS=RETAIN_EXISTING_CONTROLS`,
+  `BOWLER_PROFILE=NOT_REQUIRED`.
+- **In-session**: explicit open remains selected until user opens another or
+  creates a new game. Restart opens newest persisted game; no last-opened
+  persistence.
+- **Implementation**: awaiting a separate bounded authorization gate.
+- **Forbidden for this documentation package**: production code, tests,
+  migrations, dependencies, commits, merge, push, tag, NAS, other projects.
+
+### Slice 5 bounded implementation (not formally accepted)
+
+- **Work package**: `BOWLING_SLICE_5_BOUNDED_IMPLEMENTATION`.
+- **Branch**: `codex/arch-001-slice-5-history-resume` (uncommitted).
+- **Evidence**: `docs/evidence/arch-001-slice-5-implementation.md`.
+- **Against verified Slice 4 baseline**: `9a789b8` /
+  `v0.4.0-arch001-slice4`.
+- **Automated**: `ROOT_TESTS=150/150_PASS`, `SERVER_TESTS=39/39_PASS` on
+  existing `bowling-pg-test-tmp` / `127.0.0.1:15433` (stopped afterward;
+  volume preserved), `TYPECHECK=PASS`, `MOBILE_TYPECHECK=PASS`.
+- **Physical device**: `HOLD` — Samsung `R3CY40E6FVJ` `adb device`,
+  data-preserving debug update, offline flows observed except
+  force-stop/relaunch visual confirmation. See evidence file.
+- **Not claimed**: formal acceptance, closure, commit, merge, tag, release.
+
+### Slice 5 device acceptance completion (not formal acceptance)
+
+- **Work package**: `BOWLING_SLICE_5_DEVICE_ACCEPTANCE_COMPLETION`.
+- **ADB**: `R3CY40E6FVJ` `device`; airplane mode on during observed flows.
+- **Install**: `adb install -r`; `firstInstallTime` unchanged `2026-09-07`.
+- **Observed PASS**: two labeled games, switch, resume incomplete, correct
+  prior, new game preserves older, in-session selection.
+- **HOLD**: force-stop/relaunch did not restore a dumpable scoring UI (Metro
+  debug JS). Newest-after-restart not visually confirmed.
+
+### Slice 5 offline restart diagnosis (not remediation)
+
+- **Work package**: `BOWLING_SLICE_5_OFFLINE_RESTART_DIAGNOSIS`.
+- **Classification**: `DEBUG_ARTIFACT_REQUIRES_METRO`.
+- Debug APK has no `index.android.bundle`. Without Metro,
+  `Unable to load script` / `loadJSBundleFromAssets`. Process launches COLD.
+- SQLite file/WAL remained; with Metro, UI opened newest game `01a08e15`
+  (diagnostic only, not offline acceptance).
+- **Proposed (not executed in that package)**: `assembleRelease` embed via
+  existing `export:embed`, same package/debug signing, `adb install -r`, then
+  offline force-stop/relaunch **without** Metro.
+- **Not claimed in that package**: formal acceptance, closure, commit, merge,
+  tag, release.
+
+### Slice 5 self-contained APK and offline retest (not formal acceptance)
+
+- **Work package**: `BOWLING_SLICE_5_SELF_CONTAINED_DEVICE_ACCEPTANCE`.
+- **Candidate**: unchanged Slice 5 application hashes on `9a789b8` working tree.
+- **Artifact**: existing `assembleRelease` / `export:embed`; APK SHA-256
+  `0038f8f8a543ce95c77d08b43b0ffd57ef63abcde6eb87b42e4b571778e2bca7`;
+  nonempty `assets/index.android.bundle`; package `com.drago1068.bowling`
+  `0.1.0` / `1`; signing certificate SHA-256
+  `fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c`
+  matched the installed app. Not a production/store release.
+- **Install**: `adb install -r`; `firstInstallTime` still
+  `2026-09-07 12:13:15`; `lastUpdateTime=2026-09-11 18:35:16`.
+- **Offline**: airplane on; Wi-Fi and cellular disabled during retest; USB
+  reverse `tcp:8081` removed; unrelated reverses restored (`8091`, `8000→8011`).
+- **Observed PASS**: usable scoring/history UI after force-stop/relaunch
+  without Metro; newest game after install was `01a08e15`; older games
+  remained; switching to `01a08d84` then restart selected `01a08e15`; compact
+  list/switch, resume `F1 1,2`, correct `01a08d85` `8→7`, new game
+  `01a092a6` preserving older rows; restart after new game selected
+  `01a092a6`.
+- **Not claimed**: formal acceptance, closure, commit, merge, tag, production
+  release.
+
+### Slice 5 formal acceptance and local baseline (this package)
+
+- **Work package**: `BOWLING_SLICE_5_ACCEPTANCE_AND_LOCAL_COMMIT`.
+- **Architecture Authority**: conditional approval verified against the
+  recorded candidate hashes, automated evidence, offline device evidence, and
+  acceptance APK SHA-256
+  `0038f8f8a543ce95c77d08b43b0ffd57ef63abcde6eb87b42e4b571778e2bca7`.
+- **Result**: `SLICE_5_IMPLEMENTATION_ACCEPTED=true`,
+  `SLICE_5_FORMALLY_CLOSED=true`, `AUTOMATED_ACCEPTANCE=PASS`,
+  `PHYSICAL_DEVICE_ACCEPTANCE=PASS`, `OFFLINE_ACCEPTANCE=PASS`,
+  `INTEGRATION_PENDING=true`, `PRODUCTION_RELEASE=false`,
+  `SLICE_6_IMPLEMENTATION_AUTHORIZED=false`.
+- **Acceptance APK**: local `assembleRelease` artifact only; not a production
+  store release.
+- **Historical HOLDs preserved**: Slice 4 initial
+  `ADB_AND_MOBILE_ACCEPTANCE_ENABLEMENT`; Slice 5 debug
+  `DEBUG_ARTIFACT_REQUIRES_METRO` (resolved by the later self-contained APK
+  retest, not rewritten as an earlier PASS).
+- **This package**: one local feature-branch commit; no merge, push, tag,
+  production release, or Slice 6 authorization.

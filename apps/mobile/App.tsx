@@ -45,6 +45,7 @@ export default function App() {
   const [nativeReport, setNativeReport] = useState<NativeValidationReport | null>(
     null,
   );
+  const [processGeneration, setProcessGeneration] = useState(0);
   const adapterLabel = Platform.OS === "web" ? "sql.js (web preview)" : "expo-sqlite (native)";
 
   const runInit = useCallback(
@@ -114,6 +115,7 @@ export default function App() {
       // Already closed.
     }
     driverRef.current = null;
+    setProcessGeneration((n) => n + 1);
     runInit("launch", "Process restart: reopened SQLite from durable storage");
   };
 
@@ -176,6 +178,7 @@ export default function App() {
         ) : null}
 
         <ScoringPanel
+          key={processGeneration}
           driver={
             screen.phase === "ready" && screen.result.ok ? driverRef.current : null
           }

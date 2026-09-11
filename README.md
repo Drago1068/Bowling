@@ -1,8 +1,13 @@
-# Bowling — ARCH-001 domain and mobile persistence
+# Bowling — ARCH-001 domain, scoring, and mobile persistence
 
-Offline-first bowling domain foundations plus the ARCH-001 Cursor mobile persistence slice.
+Offline-first bowling domain foundations, accepted Slice 4 deterministic
+offline scoring, and the ARCH-001 mobile persistence diagnostic shell.
 
-This repository is **not** a product app. Feature development is **not authorized**. There is no scoring UI, NAS sync, authentication, analytics, or coaching.
+This repository is **not** a production product release. NAS sync,
+authentication, analytics, and coaching are not provided. Slice 5 (offline
+game history and resume) is formally closed on the feature branch;
+`INTEGRATION_PENDING=true`. The local `assembleRelease` APK is an acceptance
+artifact, not a production store release.
 
 ## What is here
 
@@ -13,7 +18,9 @@ This repository is **not** a product app. Feature development is **not authorize
   - `expo-sqlite` — native iOS/Android
 - Shared SQLite conformance suite (`src/persistence/sqlite/conformance.ts`) run against each adapter with the same expectations
 - Explicit mobile initialization, non-destructive migrations, durable device identity, transactional outbox, crash-window rollback, and lifecycle recovery from SQLite (not React state)
-- A diagnostic Expo shell that proves those behaviors
+- Accepted Slice 4: one-bowler offline ten-pin scoring (USBC Playing Rules 2026–2027), derived non-authoritative sheet, corrections, and file-backed recovery, exercised on the diagnostic Expo shell (debug Android path; not a production release)
+- Accepted Slice 5 (feature branch, integration pending): list and open persisted games by local creation date/time, resume or correct under Slice 4 rules, start a new game without deleting others, and open the newest persisted game after process restart
+- A diagnostic Expo shell that also proves persistence and recovery behaviors
 
 ```
 Portable SqliteDriver contract
@@ -53,7 +60,14 @@ npm ci
 npx expo start
 ```
 
-Then open iOS, Android, or web from the Expo CLI. The screen is a test harness: device ID, schema version, outbox, recovery status, record local roll, simulate process restart, and (native only) the shared expo-sqlite conformance runner. It will not mark records **Synced** because NAS push/pull is not in this slice. Airplane mode / no network is **Saved locally / Waiting to sync**, never data loss.
+Then open iOS, Android, or web from the Expo CLI. The screen is a diagnostic
+harness: device ID, schema version, outbox, recovery status, thin offline
+scoring (game history, new game, pinfall, derived sheet, correct roll), simulate process
+restart, and (native only) the shared expo-sqlite conformance runner. It will not
+mark records **Synced** because NAS push/pull is not live. Airplane mode / no
+network is **Saved locally / Waiting to sync**, never data loss. Restart opens
+the newest persisted game; an in-session open stays selected until the user
+opens another game or creates a new one.
 
 On native devices the harness uses a file-backed `expo-sqlite` database. The web diagnostic uses sql.js because Expo’s web synchronous API requires SharedArrayBuffer and a Metro worker.
 
@@ -66,10 +80,10 @@ npm run export:android
 
 `expo export` copies `public/sql-wasm.wasm` (web preview only) into the output folder. The export script deletes that file and audits the remaining Android Hermes bundle so native artifacts do not ship sql.js or WASM.
 
-## Architecture constraints (this slice)
+## Architecture constraints
 
 - Do not change UUIDv7, versioning, correction, outbox, canonicalization, SHA-256, or data-quality semantics
 - Do not drop-and-recreate the database on migration failure
 - Do not fake a NAS success path
 - `sql.js` is preview-only; native uses `expo-sqlite`
-- `FEATURE_DEVELOPMENT_AUTHORIZED=false`
+- Slice 6 implementation is not authorized (`SLICE_6_IMPLEMENTATION_AUTHORIZED=false`)

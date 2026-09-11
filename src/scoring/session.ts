@@ -6,7 +6,7 @@
 import type { CanonicalEntity, Frame, Game, Roll } from "../entities.ts";
 import { createCorrection } from "../correction.ts";
 import { newEntityMetadata } from "../metadata.ts";
-import { newFrameId, newGameId, newRollId } from "../identity/ids.ts";
+import { newFrameId, newGameId, newRollId, type GameId } from "../identity/ids.ts";
 import { applyCorrection } from "../persistence/sqlite/applyCorrection.ts";
 import { applyLocalMutation } from "../persistence/sqlite/localMutation.ts";
 import { createCorrectionStore } from "../persistence/sqlite/correctionStore.ts";
@@ -32,6 +32,7 @@ export interface NextRollSlot {
 
 export interface ScoringView {
   gameId: string | null;
+  gameMissing: boolean;
   sheet: GameScores | null;
   formatted: string;
   next: NextRollSlot | null;
@@ -40,20 +41,73 @@ export interface ScoringView {
   canRecord: boolean;
 }
 
+export interface GameHistoryEntry {
+  id: string;
+  created_at: string;
+  label: string;
+}
+
+export function compareGamesNewestFirst(a: { id: string; created_at: string }, b: { id: string; created_at: string }): number {
+  if (a.created_at !== b.created_at) {
+    return a.created_at < b.created_at ? 1 : -1;
+  }
+  if (a.id === b.id) return 0;
+  return a.id < b.id ? 1 : -1;
+}
+
+export function formatLocalCreationDateTime(createdAt: string): string {
+  const date = new Date(createdAt);
+  if (Number.isNaN(date.getTime())) return createdAt;
+  return date.toLocaleString(undefined, {
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+}
+
+export function shortGameIdSuffix(id: string): string {
+  const compact = id.replace(/-/g, "");
+  return compact.slice(-8);
+}
+
+export function withHistoryLabels(games: readonly Game[]): GameHistoryEntry[] {
+  const ordered = [...games].sort(compareGamesNewestFirst);
+  const bases = ordered.map((game) => ({
+    id: game.id,
+    created_at: game.created_at,
+    base: formatLocalCreationDateTime(game.created_at),
+  }));
+  return bases.map((entry) => {
+    const duplicate = bases.some((other) => other.id !== entry.id && other.base === entry.base);
+    return {
+      id: entry.id,
+      created_at: entry.created_at,
+      label: duplicate ? `${entry.base} · ${shortGameIdSuffix(entry.id)}` : entry.base,
+    };
+  });
+}
+
 function meta(id: string, deviceId: string) {
   return { ...newEntityMetadata({ id, origin_device_id: deviceId }), id };
 }
 
 export function listGamesNewestFirst(db: SqliteDriver): Game[] {
   const games = createEntityStore(db).list("Game") as Game[];
-  return [...games].sort((a, b) => (a.created_at < b.created_at ? 1 : a.created_at > b.created_at ? -1 : 0));
+  return [...games].sort(compareGamesNewestFirst);
 }
 
-export function latestGameId(db: SqliteDriver): string | null {
-  return listGamesNewestFirst(db)[0]?.id ?? null;
+export function listGameHistory(db: SqliteDriver): GameHistoryEntry[] {
+  return withHistoryLabels(listGamesNewestFirst(db));
 }
 
-export function startGame(db: SqliteDriver, deviceId: string): string {
+export function latestGameId(db: SqliteDriver): GameId | null {
+  return (listGamesNewestFirst(db)[0]?.id ?? null) as GameId | null;
+}
+
+export function startGame(db: SqliteDriver, deviceId: string): GameId {
   const gameId = newGameId();
   applyLocalMutation(db, {
     deviceId,
@@ -196,20 +250,37 @@ export function formatScoringView(sheet: GameScores, next: NextRollSlot | null):
   ].join("\n");
 }
 
+function emptyScoringView(): ScoringView {
+  return {
+    gameId: null,
+    gameMissing: false,
+    sheet: null,
+    formatted: "no game — create one",
+    next: { frame_number: 1, roll_number: 1 },
+    rolls: [],
+    correctionCount: 0,
+    canRecord: false,
+  };
+}
+
+function missingScoringView(gameId: string): ScoringView {
+  return {
+    gameId,
+    gameMissing: true,
+    sheet: null,
+    formatted: "Selected game was not found. Another game was not opened in its place.",
+    next: null,
+    rolls: [],
+    correctionCount: 0,
+    canRecord: false,
+  };
+}
+
 export function loadScoringView(db: SqliteDriver, gameId: string | null): ScoringView {
-  const resolved = gameId ?? latestGameId(db);
-  if (!resolved) {
-    return {
-      gameId: null,
-      sheet: null,
-      formatted: "no game — create one",
-      next: { frame_number: 1, roll_number: 1 },
-      rolls: [],
-      correctionCount: 0,
-      canRecord: false,
-    };
-  }
   const store = createEntityStore(db);
+  const resolved = gameId ?? latestGameId(db);
+  if (!resolved) return emptyScoringView();
+  if (!store.get("Game", resolved)) return missingScoringView(resolved);
   const facts = loadGameFacts(store, resolved);
   const sheet = deriveGame(facts);
   const next = nextLegalSlot(facts);
@@ -227,6 +298,7 @@ export function loadScoringView(db: SqliteDriver, gameId: string | null): Scorin
   }
   return {
     gameId: resolved,
+    gameMissing: false,
     sheet,
     formatted: formatScoringView(sheet, next),
     next,
