@@ -10,6 +10,11 @@ import {
   type ScoringView,
   type SqliteDriver,
 } from "../../../src/portable.ts";
+import {
+  INITIAL_SHELL_DISCLOSURES,
+  selectionAfterDisclosure,
+  toggleDisclosure,
+} from "../../../src/shellPresentation.ts";
 
 const PIN_VALUES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const;
 
@@ -24,6 +29,9 @@ export function ScoringPanel(props: {
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
   const [sessionReady, setSessionReady] = useState(false);
   const [selectedRollId, setSelectedRollId] = useState<string | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(
+    INITIAL_SHELL_DISCLOSURES.historyOpen,
+  );
   const [notice, setNotice] = useState("Create a game, then enter pinfall.");
 
   useEffect(() => {
@@ -52,6 +60,15 @@ export function ScoringPanel(props: {
     sessionReady,
     selectedGameId,
   ]);
+
+  const onToggleHistory = () => {
+    const next = toggleDisclosure(
+      { historyOpen, diagnosticsOpen: false },
+      "historyOpen",
+    );
+    setHistoryOpen(next.historyOpen);
+    setSelectedGameId((current) => selectionAfterDisclosure(current, next));
+  };
 
   const onNewGame = () => {
     if (!props.driver || !props.deviceId) return;
@@ -103,6 +120,8 @@ export function ScoringPanel(props: {
 
   const disabled = !props.enabled || !props.driver || !props.deviceId;
   const recordBlocked = disabled || !view?.canRecord || view?.gameMissing;
+  const openLabel =
+    history.find((entry) => entry.id === selectedGameId)?.label ?? null;
 
   return (
     <View style={styles.card}>
@@ -110,35 +129,56 @@ export function ScoringPanel(props: {
       <Text style={styles.note}>{notice}</Text>
       <Text style={styles.body}>
         Game: {view?.gameId ?? "none"}
-        {view?.gameMissing ? " (not found)" : ""} | corrections: {view?.correctionCount ?? 0}
+        {view?.gameMissing ? " (not found)" : ""}
+        {openLabel ? ` — ${openLabel}` : ""}
+        {" | corrections: "}
+        {view?.correctionCount ?? 0}
       </Text>
-      <Text style={styles.label}>Game history (newest first)</Text>
       {history.length === 0 ? (
         <Text style={styles.body}>No games yet. New game is not created by listing.</Text>
-      ) : (
-        history.map((entry) => (
-          <Pressable
-            key={entry.id}
-            style={[
-              styles.roll,
-              selectedGameId === entry.id ? styles.rollSelected : null,
-            ]}
-            onPress={() => onOpenGame(entry.id)}
-          >
-            <Text style={styles.body}>
-              {entry.label}
-              {selectedGameId === entry.id ? "  (open)" : ""}
-            </Text>
-          </Pressable>
-        ))
-      )}
-      <Pressable
-        style={[styles.button, disabled ? styles.buttonDisabled : null]}
-        disabled={disabled}
-        onPress={onNewGame}
-      >
-        <Text style={styles.buttonLabel}>New game</Text>
-      </Pressable>
+      ) : null}
+      <View style={styles.actionRow}>
+        <Pressable
+          style={[styles.button, styles.actionButton, disabled ? styles.buttonDisabled : null]}
+          disabled={disabled}
+          onPress={onNewGame}
+        >
+          <Text style={styles.buttonLabel}>New game</Text>
+        </Pressable>
+        <Pressable
+          style={[styles.button, styles.actionButton, disabled ? styles.buttonDisabled : null]}
+          disabled={disabled}
+          onPress={onToggleHistory}
+        >
+          <Text style={styles.buttonLabel}>
+            {historyOpen ? "Hide history" : "History"}
+          </Text>
+        </Pressable>
+      </View>
+      {historyOpen ? (
+        <View style={styles.historyBox}>
+          <Text style={styles.label}>Game history (newest first)</Text>
+          {history.length === 0 ? (
+            <Text style={styles.body}>No games yet. New game is not created by listing.</Text>
+          ) : (
+            history.map((entry) => (
+              <Pressable
+                key={entry.id}
+                style={[
+                  styles.roll,
+                  selectedGameId === entry.id ? styles.rollSelected : null,
+                ]}
+                onPress={() => onOpenGame(entry.id)}
+              >
+                <Text style={styles.body}>
+                  {entry.label}
+                  {selectedGameId === entry.id ? "  (open)" : ""}
+                </Text>
+              </Pressable>
+            ))
+          )}
+        </View>
+      ) : null}
       <Text style={styles.label}>
         Enter roll
         {view?.next ? ` (F${view.next.frame_number} R${view.next.roll_number})` : " (none)"}
@@ -217,6 +257,9 @@ const styles = StyleSheet.create({
   note: { fontSize: 13, color: "#4a4a4a" },
   sheet: { fontSize: 13, color: "#1b1b1b", fontVariant: ["tabular-nums"] },
   footnote: { fontSize: 12, color: "#5c5c5c" },
+  actionRow: { flexDirection: "row", gap: 8 },
+  actionButton: { flex: 1 },
+  historyBox: { gap: 8 },
   button: {
     backgroundColor: "#1f4d3a",
     borderRadius: 10,
@@ -230,7 +273,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#1f4d3a",
     borderRadius: 8,
     minWidth: 40,
-    paddingVertical: 8,
+    paddingVertical: 10,
     paddingHorizontal: 10,
     alignItems: "center",
   },
