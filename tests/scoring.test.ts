@@ -166,6 +166,20 @@ test("impossible two-roll total rejected in frame 10", () => {
   assert.equal(r.code, "IMPOSSIBLE_TWO_ROLL_TOTAL");
 });
 
+test("tenth-frame first-ball strike allows a second-ball 10", () => {
+  const r = validateNextRoll([fact(10, 1, 10)], { frame_number: 10, roll_number: 2, pinfall: 10 });
+  assert.equal(r.ok, true);
+});
+
+test("tenth-frame strike then 9 rejects a third-ball 2", () => {
+  const r = validateNextRoll(
+    [fact(10, 1, 10), fact(10, 2, 9)],
+    { frame_number: 10, roll_number: 3, pinfall: 2 },
+  );
+  assert.equal(r.ok, false);
+  assert.equal(r.code, "IMPOSSIBLE_TWO_ROLL_TOTAL");
+});
+
 test("invalid tenth bonus: third roll after an open tenth rejected", () => {
   const r = validateNextRoll(
     [fact(10, 1, 5), fact(10, 2, 3)],

@@ -60,6 +60,9 @@ export interface SuccessfulInitResult {
   network: NetworkAvailability;
 }
 
+/** Where initializeApplication failed. Migration `ok: false` uses status, not this. */
+export type InitFailureStage = "open" | "prepare" | "identity";
+
 export interface FailedInitResult {
   ok: false;
   status: StartupFailureStatus;
@@ -67,6 +70,7 @@ export interface FailedInitResult {
   message: string;
   retainedExistingDatabase: true;
   schemaVersion: number | null;
+  failureStage?: InitFailureStage;
 }
 
 export type ApplicationInitResult = SuccessfulInitResult | FailedInitResult;
@@ -147,14 +151,7 @@ export function initializeApplication(
   try {
     driver = options.openDriver();
   } catch (err) {
-    return {
-      ok: false,
-      status: "DATABASE_OPEN_FAILED",
-      statuses: ["DATABASE_OPEN_FAILED"],
-      message: err instanceof Error ? err.message : String(err),
-      retainedExistingDatabase: true,
-      schemaVersion: null,
-    };
+    return databaseOpenFailed(err, "open");
   }
 
   try {
@@ -168,12 +165,17 @@ export function initializeApplication(
         ok: false,
         status,
         statuses: [status],
-        message: migrated.message,
+        message: `[prepare] ${migrated.message}`,
         retainedExistingDatabase: true,
         schemaVersion: migrated.schemaVersion,
+        failureStage: "prepare",
       };
     }
+  } catch (err) {
+    return databaseOpenFailed(err, "prepare");
+  }
 
+  try {
     const schemaVersion = readSchemaVersion(driver);
     const device = createDeviceStore(driver).getOrCreate();
     const pendingOutbox = createOutboxStore(driver).pending();
@@ -207,15 +209,24 @@ export function initializeApplication(
       network,
     };
   } catch (err) {
-    return {
-      ok: false,
-      status: "DATABASE_OPEN_FAILED",
-      statuses: ["DATABASE_OPEN_FAILED"],
-      message: err instanceof Error ? err.message : String(err),
-      retainedExistingDatabase: true,
-      schemaVersion: null,
-    };
+    return databaseOpenFailed(err, "identity");
   }
+}
+
+function databaseOpenFailed(
+  err: unknown,
+  failureStage: InitFailureStage,
+): FailedInitResult {
+  const detail = err instanceof Error ? err.message : String(err);
+  return {
+    ok: false,
+    status: "DATABASE_OPEN_FAILED",
+    statuses: ["DATABASE_OPEN_FAILED"],
+    message: `[${failureStage}] ${detail}`,
+    retainedExistingDatabase: true,
+    schemaVersion: null,
+    failureStage,
+  };
 }
 
 /**

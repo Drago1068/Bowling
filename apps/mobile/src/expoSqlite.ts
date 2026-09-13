@@ -18,8 +18,14 @@ function toExpoParams(params: SqliteValue[] = []): ExpoBindValue[] {
 }
 
 /** Native Expo SQLite adapter. File-backed unless name is `:memory:`. */
-export function openExpoSqliteDriver(databaseName: string): SqliteDriver {
-  const db = SQLite.openDatabaseSync(databaseName);
+export function openExpoSqliteDriver(
+  databaseName: string,
+  options: { freshNativeConnection?: boolean } = {},
+): SqliteDriver {
+  const db = SQLite.openDatabaseSync(
+    databaseName,
+    options.freshNativeConnection ? { useNewConnection: true } : undefined,
+  );
   return createMobileSqliteDriver({
     execSync(sql) {
       db.execSync(sql);

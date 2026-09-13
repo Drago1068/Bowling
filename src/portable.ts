@@ -91,15 +91,41 @@ export {
   type FailedInitResult,
   type StartupStatus,
   type StartupFailureStatus,
+  type InitFailureStage,
   type InitializeOptions,
   type RecoveredDomainState,
 } from "./persistence/startup.ts";
 export {
   recoverAfterLifecycle,
+  acquireSqliteDriverForLifecycle,
+  runLifecycleRecoveryPass,
+  createSqliteLifecycleController,
+  createLifecycleInitGate,
+  emptyRecoveryDiagnostic,
   LIFECYCLE_EVENTS,
   type LifecycleEvent,
   type LifecycleRecoveryInput,
+  type MobileLifecycleEvent,
+  type AcquireSqliteDriverInput,
+  type AcquireSqliteDriverResult,
+  type SqliteRecoveryDiagnostic,
+  type LifecycleRecoveryPassInput,
+  type LifecycleRecoveryPassResult,
+  type SqliteLifecycleRunResult,
 } from "./persistence/lifecycle.ts";
+export {
+  probeSqliteDriver,
+  closeSqliteDriver,
+  closeSqliteDriverQuietly,
+  canProceedAfterCloseFailure,
+  isRecoverableNativeSqliteFailure,
+  isAlreadyClosedSqliteError,
+  withOneShotPostProbeExecFailure,
+  formatRecoveryDiagnostic,
+  NATIVE_EXECSYNC_NPE_MESSAGE,
+  type SqliteCloseStatus,
+  type SqliteCloseResult,
+} from "./persistence/sqliteHandle.ts";
 export { getSecureRandomBytes, assertSecureRandomAvailable } from "./platform/random.ts";
 export { sha256Utf8Hex, sha256Bytes } from "./platform/sha256.ts";
 export * from "./scoring/index.ts";

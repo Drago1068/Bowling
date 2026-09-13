@@ -88,7 +88,9 @@ export function validateNextRoll(
   const first = withCandidate[0]!;
   const second = withCandidate[1]!;
   if (withCandidate.length === 2) {
-    if (first + second > 10) {
+    // After a first-ball strike the rack resets; 0–10 are legal fill balls.
+    // Otherwise the second ball cannot exceed pins remaining (ADR-003 §11).
+    if (first !== 10 && first + second > 10) {
       return invalid(
         "IMPOSSIBLE_TWO_ROLL_TOTAL",
         `frame 10 first two rolls sum to ${first + second} (>10)`,
@@ -101,6 +103,13 @@ export function validateNextRoll(
     return invalid(
       "INVALID_TENTH_BONUS",
       "a tenth-frame third roll is only legal after a strike or a spare",
+    );
+  }
+  // Strike then non-strike fill: third ball is on remaining pins, not a new rack.
+  if (first === 10 && second < 10 && candidate.pinfall > 10 - second) {
+    return invalid(
+      "IMPOSSIBLE_TWO_ROLL_TOTAL",
+      `frame 10 fill balls sum to ${second + candidate.pinfall} (>10)`,
     );
   }
   return ok();

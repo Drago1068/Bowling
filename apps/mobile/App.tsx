@@ -12,11 +12,11 @@ import {
   View,
 } from "react-native";
 import {
-  initializeApplication,
-  recoverAfterLifecycle,
+  createSqliteLifecycleController,
   type ApplicationInitResult,
+  type FailedInitResult,
+  type MobileLifecycleEvent,
   type NetworkAvailability,
-  type SqliteDriver,
 } from "../../src/portable.ts";
 import { ensureMobileCrypto } from "./src/ensureCrypto.ts";
 import { openMobileDatabase } from "./src/openDatabase.ts";
@@ -35,14 +35,23 @@ type ScreenState =
   | { phase: "ready"; result: ApplicationInitResult; note: string }
   | { phase: "failed"; result: ApplicationInitResult; note: string };
 
-function openPreparedDriver(): Promise<SqliteDriver> {
-  ensureMobileCrypto();
-  return openMobileDatabase();
-}
-
 export default function App() {
-  const driverRef = useRef<SqliteDriver | null>(null);
+  const networkRef = useRef<NetworkAvailability>("unavailable");
+  const controllerRef = useRef(
+    createSqliteLifecycleController({
+      openSameDatabase: () => {
+        ensureMobileCrypto();
+        return openMobileDatabase();
+      },
+      openFreshSameDatabase: () => {
+        ensureMobileCrypto();
+        return openMobileDatabase({ freshNativeConnection: true });
+      },
+      getNetwork: () => networkRef.current,
+    }),
+  );
   const [network, setNetwork] = useState<NetworkAvailability>("unavailable");
+  networkRef.current = network;
   const [screen, setScreen] = useState<ScreenState>({
     phase: "loading",
     note: "Opening local database…",
@@ -54,53 +63,51 @@ export default function App() {
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(
     INITIAL_SHELL_DISCLOSURES.diagnosticsOpen,
   );
+  const [recoveryLine, setRecoveryLine] = useState("none");
+  const [faultArmed, setFaultArmed] = useState(false);
   const adapterLabel = Platform.OS === "web" ? "sql.js (web preview)" : "expo-sqlite (native)";
 
+  const publishFailure = useCallback((result: FailedInitResult, note: string) => {
+    setScreen({
+      phase: "failed",
+      result,
+      note,
+    });
+  }, []);
+
   const runInit = useCallback(
-    (event: "launch" | "foreground" | "lock_resume", note: string) => {
-      void (async () => {
-        try {
-          if (!driverRef.current) {
-            driverRef.current = await openPreparedDriver();
-          }
-          const result =
-            event === "launch"
-              ? initializeApplication({
-                  openDriver: () => driverRef.current as SqliteDriver,
-                  network,
-                })
-              : recoverAfterLifecycle(event, {
-                  openDriver: () => driverRef.current as SqliteDriver,
-                  openDriverIfAlive: () => driverRef.current as SqliteDriver,
-                  network,
-                });
-          if (result.ok) {
-            setScreen({ phase: "ready", result, note });
-          } else {
-            setScreen({
-              phase: "failed",
-              result,
-              note: `${result.status}: ${result.message}. Existing database retained.`,
-            });
-          }
-        } catch (err) {
-          const message = err instanceof Error ? err.message : String(err);
-          setScreen({
-            phase: "failed",
-            result: {
-              ok: false,
-              status: "DATABASE_OPEN_FAILED",
-              statuses: ["DATABASE_OPEN_FAILED"],
-              message,
-              retainedExistingDatabase: true,
-              schemaVersion: null,
-            },
-            note: `Open failed: ${message}. The database file was not recreated.`,
-          });
-        }
-      })();
+    (
+      event: MobileLifecycleEvent,
+      note: string,
+      remountPanel = false,
+    ) => {
+      if (remountPanel) {
+        setProcessGeneration((n) => n + 1);
+      }
+      if (event === "launch" || remountPanel) {
+        setScreen({
+          phase: "loading",
+          note,
+        });
+      }
+
+      const outcome = controllerRef.current.run(event);
+      setRecoveryLine(outcome.diagnosticLine);
+      setFaultArmed(controllerRef.current.isPostProbeFaultArmed());
+      console.log(`bowling.sqliteRecovery ${outcome.diagnosticLine}`);
+      if (outcome.skipped) return;
+
+      const result = outcome.init;
+      if (outcome.published && result?.ok) {
+        setScreen({ phase: "ready", result, note });
+      } else if (outcome.published && result && !result.ok) {
+        publishFailure(
+          result,
+          `${result.status}: ${result.message}. Existing database retained.`,
+        );
+      }
     },
-    [network],
+    [publishFailure],
   );
 
   useEffect(() => {
@@ -117,14 +124,11 @@ export default function App() {
   }, [runInit]);
 
   const simulateProcessRestart = () => {
-    try {
-      driverRef.current?.close();
-    } catch {
-      // Already closed.
-    }
-    driverRef.current = null;
-    setProcessGeneration((n) => n + 1);
-    runInit("launch", "Process restart: reopened SQLite from durable storage");
+    runInit(
+      "process_restart",
+      "Process restart: reopened SQLite from durable storage",
+      true,
+    );
   };
 
   const runNativeConformance = () => {
@@ -151,6 +155,7 @@ export default function App() {
             <View style={styles.failBox}>
               <Text style={styles.failTitle}>{screen.result.status}</Text>
               <Text style={styles.body}>{screen.note}</Text>
+              <Text style={styles.body}>{recoveryLine}</Text>
               <Text style={styles.body}>
                 Existing bowling data was not dropped. Fix the database and retry;
                 the app will not silently recreate it.
@@ -161,7 +166,9 @@ export default function App() {
           <ScoringPanel
             key={processGeneration}
             driver={
-              screen.phase === "ready" && screen.result.ok ? driverRef.current : null
+              screen.phase === "ready" && screen.result.ok
+                ? controllerRef.current.getDriver()
+                : null
             }
             deviceId={
               screen.phase === "ready" && screen.result.ok
@@ -191,7 +198,7 @@ export default function App() {
             style={styles.disclosure}
           >
             <Text style={styles.disclosureLabel}>
-              {diagnosticsOpen ? "Hide diagnostics" : "Diagnostics"}
+              {diagnosticsOpen ? "Hide advanced" : "Advanced"}
             </Text>
           </Pressable>
 
@@ -201,6 +208,13 @@ export default function App() {
               <Text style={styles.subtitle}>
                 Persistence, recovery, and thin offline scoring (derived, non-authoritative).
               </Text>
+              <View style={styles.card}>
+                <Row label="SQLite recovery" value={recoveryLine} />
+                <Row
+                  label="Recovery test"
+                  value={faultArmed ? "armed (one shot)" : "disarmed"}
+                />
+              </View>
               {screen.phase === "ready" && screen.result.ok ? (
                 <View style={styles.card}>
                   <Row label="Adapter" value={adapterLabel} />
@@ -235,6 +249,26 @@ export default function App() {
                   onPress={() =>
                     runInit("foreground", "Manual recovery from persistence")
                   }
+                />
+                <Button
+                  label={
+                    faultArmed
+                      ? "Recovery test armed (one shot)"
+                      : "Arm one recovery test"
+                  }
+                  disabled={faultArmed}
+                  onPress={() => {
+                    controllerRef.current.armPostProbeFaultOnce();
+                    setFaultArmed(true);
+                  }}
+                />
+                <Button
+                  label="Disarm recovery test"
+                  disabled={!faultArmed}
+                  onPress={() => {
+                    controllerRef.current.disarmPostProbeFault();
+                    setFaultArmed(false);
+                  }}
                 />
                 <Button
                   label={
@@ -331,7 +365,7 @@ const styles = StyleSheet.create({
     borderColor: "#d9d1c3",
   },
   disclosureLabel: {
-    color: "#1f4d3a",
+    color: "#6b6b6b",
     fontWeight: "600",
     textAlign: "center",
   },

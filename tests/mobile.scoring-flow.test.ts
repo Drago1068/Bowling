@@ -4,11 +4,13 @@ import {
   correctRoll,
   createCorrectionStore,
   createEntityStore,
+  createOutboxStore,
   latestGameId,
   loadGameFacts,
   loadScoringView,
   nextLegalSlot,
   openDatabase,
+  pinfallLegal,
   recordRoll,
   startGame,
 } from "../src/index.ts";
@@ -148,4 +150,115 @@ test("recordRoll rejects when the game is complete", () => {
   }
   const denied = recordRoll(db, DEVICE, gameId, 1);
   assert.equal(denied.ok, false);
+});
+
+function snapshotFacts(db: ReturnType<typeof openDatabase>) {
+  return JSON.stringify(
+    db
+      .prepare(
+        "SELECT entity_type, id, entity_version, payload FROM canonical_entities ORDER BY entity_type, id",
+      )
+      .all(),
+  );
+}
+
+function nineStrikes(db: ReturnType<typeof openDatabase>, gameId: string) {
+  for (let i = 0; i < 9; i++) {
+    assert.equal(recordRoll(db, DEVICE, gameId, 10).ok, true);
+  }
+}
+
+test("ENTRY: twelve sequential strikes complete at 300", () => {
+  const db = openDatabase();
+  const gameId = startGame(db, DEVICE);
+  for (let i = 0; i < 12; i++) {
+    assert.equal(recordRoll(db, DEVICE, gameId, 10).ok, true, `strike ${i + 1}`);
+  }
+  const view = loadScoringView(db, gameId);
+  assert.equal(view.sheet?.status, "COMPLETED");
+  assert.equal(view.sheet?.finalTotal, 300);
+  assert.equal(view.canRecord, false);
+  assert.equal(view.next, null);
+  const extra = recordRoll(db, DEVICE, gameId, 10);
+  assert.equal(extra.ok, false);
+});
+
+test("ENTRY: tenth 10,9,1 succeeds; 10,9 then 2 is rejected without mutation", () => {
+  const db = openDatabase();
+  const gameId = startGame(db, DEVICE);
+  nineStrikes(db, gameId);
+  assert.equal(recordRoll(db, DEVICE, gameId, 10).ok, true);
+  assert.equal(recordRoll(db, DEVICE, gameId, 9).ok, true);
+  const before = snapshotFacts(db);
+  const beforeOutbox = createOutboxStore(db).pending().length;
+  assert.equal(recordRoll(db, DEVICE, gameId, 2).ok, false);
+  assert.equal(snapshotFacts(db), before);
+  assert.equal(createOutboxStore(db).pending().length, beforeOutbox);
+  assert.equal(recordRoll(db, DEVICE, gameId, 1).ok, true);
+  const view = loadScoringView(db, gameId);
+  assert.equal(view.sheet?.status, "COMPLETED");
+  assert.deepEqual(
+    view.rolls.filter((r) => r.frame_number === 10).map((r) => r.pinfall),
+    [10, 9, 1],
+  );
+});
+
+test("ENTRY: after tenth 10,10 every 0-10 fill is legal", () => {
+  const db = openDatabase();
+  const gameId = startGame(db, DEVICE);
+  nineStrikes(db, gameId);
+  assert.equal(recordRoll(db, DEVICE, gameId, 10).ok, true);
+  assert.equal(recordRoll(db, DEVICE, gameId, 10).ok, true);
+  const facts = loadGameFacts(createEntityStore(db), gameId);
+  const slot = nextLegalSlot(facts);
+  assert.deepEqual(slot, { frame_number: 10, roll_number: 3 });
+  for (let n = 0; n <= 10; n++) {
+    assert.equal(pinfallLegal(facts, slot!, n), true, `fill ${n}`);
+  }
+});
+
+test("ENTRY: tenth 8,5 remains rejected without mutation", () => {
+  const db = openDatabase();
+  const gameId = startGame(db, DEVICE);
+  for (let i = 0; i < 9; i++) {
+    assert.equal(recordRoll(db, DEVICE, gameId, 0).ok, true);
+    assert.equal(recordRoll(db, DEVICE, gameId, 0).ok, true);
+  }
+  assert.equal(recordRoll(db, DEVICE, gameId, 8).ok, true);
+  const before = snapshotFacts(db);
+  const beforeOutbox = createOutboxStore(db).pending().length;
+  assert.equal(recordRoll(db, DEVICE, gameId, 5).ok, false);
+  assert.equal(snapshotFacts(db), before);
+  assert.equal(createOutboxStore(db).pending().length, beforeOutbox);
+});
+
+test("ENTRY: tenth spare permits a fill ball; open tenth rejects an extra ball", () => {
+  const db = openDatabase();
+  const spareId = startGame(db, DEVICE);
+  for (let i = 0; i < 9; i++) {
+    assert.equal(recordRoll(db, DEVICE, spareId, 0).ok, true);
+    assert.equal(recordRoll(db, DEVICE, spareId, 0).ok, true);
+  }
+  assert.equal(recordRoll(db, DEVICE, spareId, 9).ok, true);
+  assert.equal(recordRoll(db, DEVICE, spareId, 1).ok, true);
+  assert.equal(recordRoll(db, DEVICE, spareId, 7).ok, true);
+  const spareView = loadScoringView(db, spareId);
+  assert.equal(spareView.sheet?.status, "COMPLETED");
+  assert.equal(spareView.canRecord, false);
+
+  const openId = startGame(db, DEVICE);
+  for (let i = 0; i < 9; i++) {
+    assert.equal(recordRoll(db, DEVICE, openId, 0).ok, true);
+    assert.equal(recordRoll(db, DEVICE, openId, 0).ok, true);
+  }
+  assert.equal(recordRoll(db, DEVICE, openId, 8).ok, true);
+  assert.equal(recordRoll(db, DEVICE, openId, 1).ok, true);
+  const before = snapshotFacts(db);
+  const beforeOutbox = createOutboxStore(db).pending().length;
+  assert.equal(recordRoll(db, DEVICE, openId, 1).ok, false);
+  assert.equal(snapshotFacts(db), before);
+  assert.equal(createOutboxStore(db).pending().length, beforeOutbox);
+  const openView = loadScoringView(db, openId);
+  assert.equal(openView.sheet?.status, "COMPLETED");
+  assert.equal(openView.rolls.filter((r) => r.frame_number === 10).length, 2);
 });

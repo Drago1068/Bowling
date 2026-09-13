@@ -203,6 +203,8 @@ test("database open failure is explicit and does not recreate", () => {
   if (!result.ok) {
     assert.equal(result.status, "DATABASE_OPEN_FAILED");
     assert.equal(result.retainedExistingDatabase, true);
+    assert.equal(result.failureStage, "open");
+    assert.match(result.message, /^\[open\] file locked/);
   }
 });
 
