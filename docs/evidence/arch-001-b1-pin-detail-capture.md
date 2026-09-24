@@ -558,3 +558,25 @@ INTEGRATION_BRANCH_TOUCHED=false
 ```
 
 Corrected `PROJECT_STATUS.md` so `CURRENT_HEAD` / `CURRENT_TREE` match the formally accepted B1 commit/tree, cleared the stale graphical-entry design-review blocker, and preserved formal acceptance and design acceptance. Stop for a fresh read-only integration review.
+
+## B1 local integration and push closeout (2026-09-24)
+
+```ini
+WORK_PACKAGE=BOWLING_POST_PUSH_B1_INTEGRATION_STATUS_CLOSEOUT
+INTEGRATION_BRANCH=arch/001-domain-sync-foundation
+INTEGRATED_REMOTE_COMMIT=d82ed963211cd7a80a774b1b816ab10859026e01
+INTEGRATED_REMOTE_TREE=a6cfb602e85dd34164921e8174e2d9fb9d908819
+B1_LOCAL_INTEGRATION=PASS
+B1_ACCEPTED_COMMIT=d8256794eefdf877f3c847b25f204ec38dc3f9b5
+PUSH_PERFORMED=true
+FEATURE_BRANCH=codex/b1-pin-detail-capture
+FEATURE_BRANCH_TIP=9305a46707fe5c234b0901eda9e46c14114ea571
+FEATURE_BRANCH_PUSHED=false
+TAG_PUBLISHED=false
+RELEASE_PERFORMED=false
+DEPLOYMENT_PERFORMED=false
+NAS_ACCESSED=false
+B2_STARTED=false
+```
+
+Recorded post-push integration closeout: `CURRENT_HEAD` / `CURRENT_TREE` aligned to the integrated remote commit `d82ed96`, `PUSH_PERFORMED=true` on the integration branch only, B1 local integration remains PASS, and the feature branch stays unpublished.
