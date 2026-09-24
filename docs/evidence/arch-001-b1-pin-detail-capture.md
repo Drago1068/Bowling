@@ -525,6 +525,8 @@ Verified candidate APK hash matches installed package. Device verification packa
 
 ```ini
 B1_LOCAL_COMMIT_CREATED=true
+B1_ACCEPTED_COMMIT=d8256794eefdf877f3c847b25f204ec38dc3f9b5
+B1_ACCEPTED_TREE=0188acfc45befaed9a05cf18a419fc6951bbc0e4
 MERGE_PERFORMED=false
 PUSH_PERFORMED=false
 TAG_PUBLISHED=false
@@ -532,3 +534,27 @@ RELEASE_PERFORMED=false
 NAS_ACCESSED=false
 B2_STARTED=false
 ```
+
+## B1 status identity correction (2026-09-24)
+
+```ini
+WORK_PACKAGE=BOWLING_POST_B1_STATUS_IDENTITY_CORRECTION
+FEATURE_BRANCH=codex/b1-pin-detail-capture
+ACCEPTED_COMMIT=d8256794eefdf877f3c847b25f204ec38dc3f9b5
+ACCEPTED_TREE=0188acfc45befaed9a05cf18a419fc6951bbc0e4
+CURRENT_HEAD_ALIGNED=true
+CURRENT_TREE_ALIGNED=true
+CURRENT_BLOCKERS=NONE
+GRAPHICAL_ENTRY_DESIGN_REVIEW_BLOCKER_REMOVED=true
+B1_FORMAL_ACCEPTANCE=true
+USER_DESIGN_ACCEPTANCE=ACCEPTED
+MERGE_AUTHORIZED=false
+PUSH_AUTHORIZED=false
+TAG_AUTHORIZED=false
+RELEASE_AUTHORIZED=false
+NAS_ACCESSED=false
+B2_STARTED=false
+INTEGRATION_BRANCH_TOUCHED=false
+```
+
+Corrected `PROJECT_STATUS.md` so `CURRENT_HEAD` / `CURRENT_TREE` match the formally accepted B1 commit/tree, cleared the stale graphical-entry design-review blocker, and preserved formal acceptance and design acceptance. Stop for a fresh read-only integration review.
