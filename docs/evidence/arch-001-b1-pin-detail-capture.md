@@ -580,3 +580,26 @@ B2_STARTED=false
 ```
 
 Recorded post-push integration closeout: `CURRENT_HEAD` / `CURRENT_TREE` aligned to the integrated remote commit `d82ed96`, `PUSH_PERFORMED=true` on the integration branch only, B1 local integration remains PASS, and the feature branch stays unpublished.
+
+## B1 acceptance marker decision (2026-09-24)
+
+```ini
+WORK_PACKAGE=BOWLING_RECORD_B1_ACCEPTANCE_MARKER_DECISION_NO_TAG
+INTEGRATION_BRANCH=arch/001-domain-sync-foundation
+INTEGRATION_HEAD=46cbb54cef63d2e61d1e60ae2399ddccb3384dd5
+INTEGRATION_TREE=05cd3511fc199b8bfb926d84f70e871510d3bad3
+MARKER_AUTHORIZED=false
+B1_ACCEPTANCE_MARKER=NOT_AUTHORIZED
+TAG_PUBLISHED=false
+B1_FORMAL_ACCEPTANCE=true
+B1_LOCAL_INTEGRATION=PASS
+B1_INTEGRATED_ON_DEFAULT_BRANCH=true
+FEATURE_BRANCH=codex/b1-pin-detail-capture
+FEATURE_BRANCH_PUSHED=false
+RELEASE_PERFORMED=false
+DEPLOYMENT_PERFORMED=false
+NAS_ACCESSED=false
+B2_STARTED=false
+```
+
+Architecture Authority did not authorize an annotated B1 acceptance marker (ADR-007 forbids inventing a new tag/slice number; no B1 tag name was designated). B1 remains formally accepted and integrated on the default branch without a new tag.
