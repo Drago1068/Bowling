@@ -11,7 +11,11 @@ import {
 import {
   INITIAL_SHELL_DISCLOSURES,
   ballCellMark,
+  computeHomeMetrics,
+  dateHeaderAverage,
+  defaultFixRollId,
   frameSlotCount,
+  groupHistoryByDate,
   humanizeNextBallRejection,
   ordinalBall,
   scoringPad,
@@ -19,11 +23,19 @@ import {
   selectionAfterScoringMode,
   scoringActionsAllowed,
   STORAGE_UNAVAILABLE_NOTICE,
+  PBA_HANDICAP_UNDEFINED,
   historyStartNewGamePlacement,
   scoringChromeShowsStartNewGame,
+  fixModeLayout,
+  fixSaveTargetRollId,
+  fixCancelPresentationReset,
+  fixExitControlsReachableWithLongRollList,
+  spareControlEnabled,
+  strikeControlEnabled,
   toggleDisclosure,
 } from "../src/shellPresentation.ts";
 import { TEST_DEVICE_ID } from "./helpers.ts";
+import { recordRoll } from "../src/scoring/session.ts";
 
 test("SHELL_DEFAULT: history and diagnostics start collapsed", () => {
   assert.equal(INITIAL_SHELL_DISCLOSURES.historyOpen, false);
@@ -110,6 +122,8 @@ test("SCORECARD: unplayed, zero, strike, spare, and tenth-frame slots", () => {
   assert.equal(ballCellMark({ isStrike: false, isSpare: false, deliveryIndex: 0, pinfall: undefined }), "unplayed");
   assert.equal(ballCellMark({ isStrike: false, isSpare: false, deliveryIndex: 1, pinfall: 0 }), "0");
   assert.equal(ballCellMark({ isStrike: true, isSpare: false, deliveryIndex: 0, pinfall: 10 }), "X");
+  assert.equal(ballCellMark({ isStrike: false, isSpare: false, deliveryIndex: 1, pinfall: 10 }), "X");
+  assert.equal(ballCellMark({ isStrike: false, isSpare: false, deliveryIndex: 2, pinfall: 10 }), "X");
   assert.equal(ballCellMark({ isStrike: false, isSpare: true, deliveryIndex: 1, pinfall: 3 }), "/");
   assert.equal(frameSlotCount(1), 2);
   assert.equal(frameSlotCount(10), 3);
@@ -130,4 +144,155 @@ test("HISTORY: Start a new game sits above the list, not in scoring chrome", () 
   assert.equal(historyStartNewGamePlacement(false), "not_in_history");
   assert.equal(scoringChromeShowsStartNewGame(true), false);
   assert.equal(scoringChromeShowsStartNewGame(false), true);
+});
+
+test("FIX_EXIT: editor hides chooser so Save/Cancel are not behind a long roll list", () => {
+  const choosing = fixModeLayout(null);
+  assert.equal(choosing.showRollChooser, true);
+  assert.equal(choosing.showEditor, false);
+  assert.equal(choosing.exitControls, "above_chooser");
+
+  const editing = fixModeLayout("01a00000-0000-7000-8000-0000000000aa");
+  assert.equal(editing.showRollChooser, false);
+  assert.equal(editing.showEditor, true);
+  assert.equal(editing.exitControls, "with_editor");
+
+  assert.equal(
+    fixExitControlsReachableWithLongRollList("01a00000-0000-7000-8000-0000000000aa", 21),
+    true,
+  );
+  assert.equal(fixExitControlsReachableWithLongRollList(null, 21), true);
+});
+
+test("FIX_EXIT: Save targets the selected durable roll only", () => {
+  const rollId = "01a00000-0000-7000-8000-0000000000bb";
+  assert.equal(fixSaveTargetRollId(rollId), rollId);
+  assert.equal(fixSaveTargetRollId(null), null);
+});
+
+test("FIX_EXIT: Cancel presentation clears draft and leaves Fix without implying writes", () => {
+  const reset = fixCancelPresentationReset();
+  assert.equal(reset.fixMode, false);
+  assert.equal(reset.selectedRollId, null);
+  assert.equal(reset.draftCleared, true);
+});
+
+test("HOME_METRICS: range filters use completed games only; PBA stays undefined", () => {
+  const games = [
+    {
+      id: "a",
+      dateKey: "2026-09-23",
+      gameNumber: 1,
+      status: "complete" as const,
+      finalTotal: 100,
+      created_at: "2026-09-23T12:00:00.000Z",
+    },
+    {
+      id: "b",
+      dateKey: "2026-09-23",
+      gameNumber: 2,
+      status: "active" as const,
+      finalTotal: null,
+      created_at: "2026-09-23T13:00:00.000Z",
+    },
+    {
+      id: "c",
+      dateKey: "2026-09-22",
+      gameNumber: 1,
+      status: "complete" as const,
+      finalTotal: 200,
+      created_at: "2026-09-22T12:00:00.000Z",
+    },
+    {
+      id: "d",
+      dateKey: "2026-08-01",
+      gameNumber: 1,
+      status: "complete" as const,
+      finalTotal: 150,
+      created_at: "2026-08-01T12:00:00.000Z",
+    },
+  ];
+  const all = computeHomeMetrics(games, "all", "2026-09-23");
+  assert.equal(all.qualifyingGames, 3);
+  assert.equal(all.overallAverage, 150);
+  assert.equal(all.pbaDisplay, PBA_HANDICAP_UNDEFINED);
+  assert.equal(dateHeaderAverage(games.filter((g) => g.dateKey === "2026-09-23")), 100);
+  const month = computeHomeMetrics(games, "month", "2026-09-23");
+  assert.equal(month.qualifyingGames, 2);
+  const groups = groupHistoryByDate(games, "month", "2026-09-23");
+  assert.equal(groups.length, 2);
+  assert.equal(groups[0]?.date, "2026-09-23");
+  assert.equal(groups[0]?.average, 100);
+  assert.ok(all.averageByDateRows.every((r) => r.weekAverage != null || r.average == null));
+});
+
+test("ENTRY_CONTROLS: gutter leaves spare legal and strike illegal on ball 2", () => {
+  assert.equal(
+    strikeControlEnabled({ rackLength: 10, frameNumber: 1, rollNumber: 1 }),
+    true,
+  );
+  assert.equal(
+    strikeControlEnabled({ rackLength: 10, frameNumber: 1, rollNumber: 2 }),
+    false,
+  );
+  assert.equal(
+    spareControlEnabled({ rackLength: 10, frameNumber: 1, rollNumber: 2 }),
+    true,
+  );
+  assert.equal(
+    spareControlEnabled({ rackLength: 10, frameNumber: 1, rollNumber: 1 }),
+    false,
+  );
+  assert.equal(
+    strikeControlEnabled({
+      rackLength: 10,
+      frameNumber: 10,
+      rollNumber: 2,
+      tenthBall1Pinfall: 10,
+    }),
+    true,
+  );
+});
+
+test("FIX_DEFAULT: frame opens first throw when multiple balls exist", () => {
+  assert.equal(
+    defaultFixRollId([
+      { entity_id: "r2", roll_number: 2 },
+      { entity_id: "r1", roll_number: 1 },
+    ]),
+    "r1",
+  );
+  assert.equal(defaultFixRollId([]), null);
+});
+
+test("FIX_EXIT: opening and cancelling Fix does not mutate canonical or outbox", () => {
+  const db = openDatabase();
+  const gameId = startGame(db, TEST_DEVICE_ID);
+  assert.equal(recordRoll(db, TEST_DEVICE_ID, gameId, 5).ok, true);
+  assert.equal(recordRoll(db, TEST_DEVICE_ID, gameId, 3).ok, true);
+  const beforeCanonical = JSON.stringify(
+    db
+      .prepare(
+        "SELECT entity_type, id, entity_version, payload FROM canonical_entities ORDER BY entity_type, id",
+      )
+      .all(),
+  );
+  const beforeOutbox = createOutboxStore(db).pending().length;
+  const selected = gameId;
+  assert.equal(selectionAfterScoringMode(selected), gameId);
+  const cancel = fixCancelPresentationReset();
+  assert.equal(cancel.fixMode, false);
+  assert.equal(cancel.selectedRollId, null);
+  assert.equal(selectionAfterScoringMode(selected), gameId);
+  assert.equal(
+    JSON.stringify(
+      db
+        .prepare(
+          "SELECT entity_type, id, entity_version, payload FROM canonical_entities ORDER BY entity_type, id",
+        )
+        .all(),
+    ),
+    beforeCanonical,
+  );
+  assert.equal(createOutboxStore(db).pending().length, beforeOutbox);
 });

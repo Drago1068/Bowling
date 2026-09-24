@@ -1,0 +1,45 @@
+﻿08:10:22 === LAUNCH ===
+08:10:33 QUAL0=21 Complete visible=True
+08:10:33 === GAME A gutter ===
+08:11:10 TAP Start New Game Start New Game
+08:11:10 XY 720,2404 bounds=503,2363,936,2444
+08:11:14 New game: Bowling | This game Â· 9/24/2026, 8:11:10â€¯AM | Tap standing pins, then âœ“ â€” or use X / G / / when legal. | 1 | Â· | 2 | 3 | 4 | 5
+08:11:17 XY 569,2203 bounds=433,2113,705,2293
+08:11:21 After G: Bowling | This game Â· 9/24/2026, 8:11:10â€¯AM | Saved: pins 0; standing 1, 2, 3, 4, 5, 6, 7, 8, 9, 10. Next: Frame 1 Â· 2nd ball. | 1 | 0 | Â· | â€¦ | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | Frame 1 Â· 2nd ball | Tap the pins still standing. | X | G | âœ“ | / | Fix a ball | Home | Previous games | Advanced
+08:11:24 X=False Slash=True
+08:11:26 TAP Home Home
+08:11:26 XY 417,2596 bounds=342,2558,492,2635
+08:11:41 QUAL_A=21 Active=True
+08:11:41 === GAME B leave+fix ===
+08:12:12 TAP Start New Game Start New Game
+08:12:12 XY 720,2404 bounds=503,2364,936,2445
+08:12:19 XY 428,1378 bounds=345,1295,510,1460
+08:12:22 XY 1012,1378 bounds=930,1295,1095,1460
+08:12:25 XY 871,2203 bounds=735,2113,1007,2293
+08:12:32 XY 237,594 bounds=131,469,343,719
+08:12:36 Fix1: Bowling | This game Â· 9/24/2026, 8:12:12â€¯AM | Correct Frame 1 Â· 1st ball. Edit standing, then âœ“. | 1 | 8 | Â· | â€¦ | 2 | 3 | 4 | 5 | 6 | 7 | 9 | 10 | Frame 1 Â· 1st ball Â· correcting | Tap the pins still standing. | X | G | âœ“ | / | Cancel | Home | Previous games | Advanced
+08:12:39 fix_first pins7=True pins10=True
+08:12:41 TAP Cancel Cancel
+08:12:41 XY 720,2416 bounds=635,2377,804,2454
+08:12:45 XY 569,2018 bounds=433,1928,705,2108
+08:12:50 XY 237,594 bounds=131,469,343,719
+08:12:54 switch controls 1=True 2=True
+08:12:57 TAP 2nd throw 2nd throw
+08:12:57 XY 651,1222 bounds=531,1186,771,1258
+08:13:03 TAP 1st throw 1st throw
+08:13:03 XY 291,1222 bounds=179,1186,403,1258
+08:13:08 2nd standing 7/10=True/True ; 1st restored 7/10=True/True
+08:13:10 TAP Cancel Cancel
+08:13:10 XY 720,2592 bounds=635,2554,804,2631
+08:13:13 TAP Home Home
+08:13:13 XY 417,2414 bounds=342,2376,492,2453
+08:13:26 QUAL_F=21
+08:13:26 === RESULTS ===
+08:13:26 gutter_advance=True
+08:13:26 spare_x=True
+08:13:26 fix_first=True
+08:13:26 throw_switch=True
+08:13:26 incomplete_excluded=True
+08:13:26 completed_included=True
+08:13:26 data_preserved=True
+08:13:26 VERDICT=PASS

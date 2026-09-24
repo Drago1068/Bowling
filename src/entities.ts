@@ -111,6 +111,8 @@ export interface Roll extends EntityMetadata<RollId> {
 export interface PinState extends EntityMetadata<PinStateId> {
   entity_type: "PinState";
   roll_id: RollId;
+  /** Roll.entity_version at observation time (ADR-008). Required for EFFECTIVE. */
+  basis_roll_version: number | null;
   standing_pins: number[] | null;
 }
 

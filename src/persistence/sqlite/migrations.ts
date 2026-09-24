@@ -1,3 +1,6 @@
+import type { SqliteDriver } from "./driver.ts";
+import { assertActivePinStatesIndexable } from "../pinStateAssociationPrecheck.ts";
+
 /**
  * SQLite baseline migrations. The TypeScript array is the authoritative source
  * of truth for the runtime schema; `migrations/001_baseline.sql` is a
@@ -7,6 +10,8 @@ export interface Migration {
   version: number;
   name: string;
   sql: string;
+  /** Runs inside the migration transaction before sql; throw to fail closed. */
+  precheck?: (driver: SqliteDriver) => void;
 }
 
 const V001_BASELINE = `
@@ -101,7 +106,31 @@ CREATE TABLE IF NOT EXISTS sync_conflicts (
 CREATE INDEX IF NOT EXISTS idx_sync_conflicts_entity ON sync_conflicts(entity_type, entity_id);
 `;
 
+const V003_PINSTATE_ACTIVE_ROLL = `
+CREATE UNIQUE INDEX IF NOT EXISTS ux_pinstate_active_roll
+ON canonical_entities(
+  json_extract(payload, '$.roll_id')
+)
+WHERE entity_type = 'PinState' AND archived = 0;
+`;
+
+function precheckPinStateActiveRoll(driver: SqliteDriver): void {
+  const rows = driver
+    .prepare(
+      `SELECT id, archived, payload FROM canonical_entities
+       WHERE entity_type = 'PinState'`,
+    )
+    .all() as Array<{ id: string; archived: number; payload: string }>;
+  assertActivePinStatesIndexable(rows);
+}
+
 export const MIGRATIONS: readonly Migration[] = [
   { version: 1, name: "baseline", sql: V001_BASELINE },
   { version: 2, name: "sync_conflicts", sql: V002_SYNC_CONFLICTS },
+  {
+    version: 3,
+    name: "pinstate_active_roll_unique",
+    sql: V003_PINSTATE_ACTIVE_ROLL,
+    precheck: precheckPinStateActiveRoll,
+  },
 ];

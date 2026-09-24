@@ -4,7 +4,7 @@ import type { SqliteDriver } from "./driver.ts";
 
 export function createConflictStore(db: SqliteDriver): ConflictStore {
   const insertStmt = db.prepare(
-    `INSERT INTO sync_conflicts
+    `INSERT OR IGNORE INTO sync_conflicts
        (conflict_id, submission_id, entity_type, entity_id,
         expected_entity_version, canonical_entity_version, local_payload, status, created_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,

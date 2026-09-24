@@ -1,0 +1,13 @@
+﻿{
+    "RESULT":  "PASS",
+    "details":  {
+                    "gutter_advance":  true,
+                    "spare_x":  true,
+                    "fix_first":  true,
+                    "throw_switch":  true,
+                    "incomplete_excluded":  true,
+                    "completed_included":  true,
+                    "data_preserved":  true
+                },
+    "APK_SHA256":  "9141fb073c8a5a0a1c6a2659cc29c0cd57136a1e5685a091ac5e99f42ecbdba4"
+}

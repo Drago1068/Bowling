@@ -1,0 +1,2069 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Bowling — Graphical Entry Prototype (fictional)</title>
+  <style>
+    :root {
+      --bg: #e8e2d6;
+      --card: #f7f3ea;
+      --ink: #1b1b1b;
+      --muted: #5c584f;
+      --line: #cfc6b6;
+      --accent: #1f4d3a;
+      --accent-soft: #e4efe9;
+      --warn: #8a1f16;
+      --pin: #f4efe6;
+      --pin-stand: #1f4d3a;
+      --phone-w: 390px;
+      --phone-h: 844px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "Helvetica Neue", sans-serif;
+      background: #2a2a2a;
+      color: var(--ink);
+      min-height: 100vh;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 24px;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 24px;
+    }
+    .side {
+      width: min(420px, 100%);
+      color: #eee;
+      font-size: 14px;
+      line-height: 1.45;
+    }
+    .side h1 { font-size: 20px; margin: 0 0 8px; color: #fff; }
+    .side h2 { font-size: 15px; margin: 18px 0 6px; color: #fff; }
+    .side code { background: #444; padding: 1px 5px; border-radius: 4px; }
+    .banner {
+      background: #5a3d12;
+      color: #ffe9c2;
+      border: 1px solid #c49a4a;
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin: 10px 0 14px;
+      font-size: 13px;
+    }
+    .refine {
+      background: #1e3a2f;
+      color: #d7f0e4;
+      border: 1px solid #4a8f72;
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin: 0 0 14px;
+      font-size: 13px;
+    }
+    .scenarios { display: grid; gap: 8px; }
+    .scenarios button {
+      text-align: left;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid #555;
+      background: #3a3a3a;
+      color: #fff;
+      cursor: pointer;
+    }
+    .scenarios button.active { border-color: #8fd6b5; background: #2f4a3d; }
+    .phone-shell {
+      width: var(--phone-w);
+      height: var(--phone-h);
+      border-radius: 36px;
+      border: 10px solid #111;
+      background: var(--bg);
+      overflow: hidden;
+      box-shadow: 0 20px 50px rgba(0,0,0,.45);
+      flex-shrink: 0;
+    }
+    .phone-inner {
+      height: 100%;
+      overflow: auto;
+      padding: 18px 14px 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .app-title { font-size: 22px; font-weight: 700; margin: 0; }
+    .context { font-size: 15px; font-weight: 700; margin: 0; }
+    .lead { margin: 0; color: var(--muted); font-size: 14px; }
+    .proposal-chip {
+      align-self: flex-start;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .02em;
+      text-transform: uppercase;
+      background: #fff3d6;
+      color: #6a4b00;
+      border: 1px solid #e0c27a;
+      border-radius: 999px;
+      padding: 4px 10px;
+    }
+    .scorecard {
+      display: grid;
+      grid-template-columns: repeat(10, 1fr);
+      gap: 4px;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 8px;
+    }
+    .frame {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      min-height: 58px;
+      padding: 4px;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .frame:disabled { cursor: not-allowed; opacity: .55; }
+    .frame:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+    .frame.selected { border-color: var(--accent); background: var(--accent-soft); }
+    .frame.current-play { box-shadow: inset 0 0 0 2px var(--accent); }
+    .frame-num { font-size: 10px; color: var(--muted); }
+    .balls { display: flex; gap: 2px; min-height: 20px; }
+    .ball {
+      flex: 1;
+      text-align: center;
+      font-weight: 700;
+      font-size: 13px;
+      border-radius: 3px;
+      min-height: 20px;
+      line-height: 20px;
+    }
+    .ball.hit { background: #eee8dc; }
+    .ball.active-delivery { outline: 2px solid var(--accent); }
+    .total {
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+      min-height: 16px;
+    }
+    .total.pending { color: var(--muted); }
+    .panel {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .prompt { margin: 0; font-size: 16px; font-weight: 700; }
+    .hint { margin: 0; font-size: 13px; color: var(--muted); }
+    .meaning { font-size: 12px; font-weight: 700; color: var(--accent); margin: 0; }
+    .rack-wrap {
+      position: relative;
+      padding: 4px 48px 56px;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+    }
+    .rack {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 0 4px;
+    }
+    .rack-row { display: flex; gap: 12px; justify-content: center; }
+    .mark-corner {
+      position: absolute;
+      bottom: 8px;
+      min-width: 44px;
+      height: 44px;
+      border-radius: 10px;
+      border: 2px solid var(--accent);
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-weight: 900;
+      font-size: 20px;
+      line-height: 1;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 8px;
+    }
+    .mark-corner.x { left: 8px; }
+    .mark-corner.gutter { left: 28%; transform: translateX(-50%); font-size: 14px; letter-spacing: .02em; }
+    .mark-corner.check {
+      left: 72%;
+      transform: translateX(-50%);
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+      font-size: 22px;
+    }
+    .mark-corner.slash { right: 8px; }
+    .mark-corner:disabled {
+      opacity: .28;
+      cursor: not-allowed;
+      border-color: var(--line);
+      background: #f0ebe3;
+      color: var(--muted);
+    }
+    .mark-corner.check:disabled {
+      background: #9aa59f;
+      border-color: #9aa59f;
+      color: #fff;
+      opacity: .45;
+    }
+    .mark-corner:focus-visible { outline: 3px solid #000; outline-offset: 2px; }
+    .pin {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      border: 2px solid var(--line);
+      background: var(--pin);
+      color: var(--ink);
+      font-weight: 800;
+      font-size: 18px;
+      cursor: pointer;
+    }
+    .pin:focus-visible { outline: 3px solid #000; outline-offset: 2px; }
+    .pin.unavailable { opacity: .28; cursor: not-allowed; background: #ebe6dc; }
+    .pin.standing {
+      background: var(--pin-stand);
+      border-color: var(--pin-stand);
+      color: #fff;
+      box-shadow: inset 0 0 0 3px #fff3;
+    }
+    .legend {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .legend span::before {
+      content: "";
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      margin-right: 6px;
+      vertical-align: -2px;
+      border: 1px solid var(--line);
+    }
+    .legend .lg-stand::before { background: var(--pin-stand); border-color: var(--pin-stand); }
+    .legend .lg-up::before { background: var(--pin); }
+    .legend .lg-out::before { background: #ebe6dc; opacity: .7; }
+    .preview {
+      background: #fff;
+      border: 1px dashed var(--line);
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-size: 14px;
+    }
+    .actions { display: flex; flex-direction: column; gap: 8px; }
+    button.primary, button.secondary, button.ghost {
+      border-radius: 10px;
+      padding: 12px 14px;
+      font-weight: 700;
+      font-size: 15px;
+      cursor: pointer;
+      border: 1px solid transparent;
+    }
+    button.primary { background: var(--accent); color: #fff; }
+    button.primary:disabled { background: #9aa59f; cursor: not-allowed; }
+    button.secondary {
+      background: #fff;
+      border-color: var(--line);
+      color: var(--accent);
+    }
+    button.ghost {
+      background: transparent;
+      border-color: var(--line);
+      color: var(--muted);
+      font-size: 13px;
+      padding: 8px 10px;
+    }
+    .status { font-size: 13px; min-height: 1.2em; color: var(--accent); font-weight: 600; }
+    .status.warn { color: var(--warn); }
+    .editing-banner {
+      background: var(--accent-soft);
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-weight: 700;
+      font-size: 14px;
+    }
+    .warn-box {
+      background: #fff8f6;
+      border: 1px solid #e2b4ae;
+      color: var(--warn);
+      border-radius: 8px;
+      padding: 10px;
+      font-size: 13px;
+    }
+    .date-group { margin-bottom: 14px; }
+    .date-group h3 {
+      margin: 0 0 8px;
+      font-size: 13px;
+      color: var(--muted);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 10px;
+    }
+    .date-group h3 .date-label { color: var(--muted); }
+    .date-group h3 .date-avg {
+      text-transform: none;
+      letter-spacing: 0;
+      font-weight: 700;
+      color: var(--ink);
+      text-align: right;
+    }
+    .date-group h3 .date-avg .score-part { font-weight: 800; }
+    .game-row {
+      width: 100%;
+      text-align: left;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      padding: 12px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: #fff;
+      cursor: pointer;
+      margin-bottom: 8px;
+      font-weight: 700;
+      color: var(--ink);
+    }
+    .game-row .meta { color: var(--muted); font-weight: 600; font-size: 13px; }
+    .game-row .score { font-variant-numeric: tabular-nums; font-size: 18px; }
+    .metrics-card {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 4px;
+    }
+    .metrics-card h3 {
+      margin: 0 0 10px;
+      font-size: 15px;
+      font-weight: 700;
+    }
+    .metrics-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 6px 0;
+      border-top: 1px solid var(--line);
+      font-size: 14px;
+    }
+    .metrics-row:first-of-type { border-top: none; }
+    .metrics-row .label { color: var(--muted); font-weight: 600; }
+    .metrics-row .value { font-weight: 700; font-variant-numeric: tabular-nums; text-align: right; max-width: 55%; }
+    .metrics-row.emphasis {
+      background: var(--accent-soft);
+      margin: 0 -8px;
+      padding: 8px;
+      border-radius: 8px;
+      border-top: none;
+    }
+    .metrics-by-date {
+      margin: 4px 0 8px;
+      padding: 8px 10px;
+      background: #faf7f1;
+      border: 1px dashed var(--line);
+      border-radius: 8px;
+    }
+    .metrics-by-date .abd-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--accent);
+      margin: 0 0 6px;
+    }
+    .metrics-by-date .abd-row {
+      font-size: 13px;
+      padding: 5px 0;
+      font-weight: 600;
+      color: var(--ink);
+      line-height: 1.35;
+    }
+    .metrics-by-date .abd-row .score-part { font-weight: 700; }
+    .metrics-note {
+      margin: 10px 0 0;
+      font-size: 13px;
+      color: var(--muted);
+      font-weight: 600;
+    }
+    .range-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin: 0 0 12px;
+    }
+    .range-bar button {
+      flex: 1 1 auto;
+      min-width: 64px;
+      padding: 8px 6px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--muted);
+      font-weight: 700;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .range-bar button.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+    .range-bar button:focus-visible { outline: 2px solid #000; outline-offset: 1px; }
+  </style>
+</head>
+<body>
+  <aside class="side">
+    <h1>Graphical entry prototype</h1>
+    <p>Isolated fictional preview. Not connected to the live Bowling app or device data.</p>
+    <div class="banner">
+      <strong>Capture default still pending approval.</strong> Rack-first / selected = standing
+      remains a proposal; ADR-007 U2 pinfall-first is not rewritten as approved.
+    </div>
+    <div class="refine">
+      <strong>Update:</strong> History date headers show that date’s completed-game average.
+      Weekly averages stay in metrics only. Week / Month / Year / All time still apply.
+      PBA handicap stays undefined (display-only).
+    </div>
+    <h2>Demo jumps (review aids)</h2>
+    <div class="scenarios" id="scenarioList"></div>
+    <h2>Please confirm</h2>
+    <ul>
+      <li>Does each date header show Average from completed games that day?</li>
+      <li>Do Active / incomplete games stay listed but not in the average?</li>
+      <li>Does Week average stay only in metrics (not the date header)?</li>
+    </ul>
+  </aside>
+
+  <div class="phone-shell" aria-label="Phone-sized prototype">
+    <div class="phone-inner" id="app"></div>
+  </div>
+
+  <script>
+    /**
+     * Fictional presentation prototype only.
+     * Selected pin = STANDING. Sequential entry. No production persistence.
+     */
+
+    const RACK_ORDER = [[7, 8, 9, 10], [4, 5, 6], [2, 3], [1]];
+    const FULL_RACK = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+    /** Prototype “today” for range filters — does not invent history. */
+    const PROTO_TODAY = "2026-09-23";
+    const METRIC_RANGES = [
+      { id: "week", label: "Week" },
+      { id: "month", label: "Month" },
+      { id: "year", label: "Year" },
+      { id: "all", label: "All time" },
+    ];
+    const ROLLING_WINDOW = 5;
+    const INSUFFICIENT = "Not enough games yet.";
+    const PBA_UNDEFINED = "Formula not defined";
+
+    const DEMOS = [
+      { id: "home", title: "Home / history", blurb: "Date-grouped scores; Start New Game." },
+      { id: "fresh", title: "New game · Frame 1", blurb: "Sequential first ball; X and G available." },
+      { id: "leave-7-10", title: "Leave 7 & 10 → ✓", blurb: "Standing pins + check mark → ball 2." },
+      { id: "spare-after-leave", title: "Ball 2 · tap /", blurb: "Remaining 7,10; / saves spare." },
+      { id: "gutter-then-spare", title: "Gutter then /", blurb: "G saves immediately; then /." },
+      { id: "tenth-xxx", title: "Tenth X X X", blurb: "Completed notation." },
+      { id: "tenth-x91", title: "Tenth X 9 / (play /)", blurb: "After X 9, tap / — game completes." },
+      { id: "tenth-x91-done", title: "Completed X 9 /", blurb: "Finished game with X 9 / tenth." },
+      { id: "score-96", title: "Completed 96", blurb: "History shows final 96, not Active." },
+      { id: "correct-frame", title: "Correct prior ball", blurb: "Tap an entered frame only." },
+      { id: "completed", title: "Completed · Done for Day", blurb: "Start New Game / Done for the Day." },
+    ];
+
+    function clone(x) {
+      return JSON.parse(JSON.stringify(x));
+    }
+
+    function emptyFrames() {
+      return Array.from({ length: 10 }, (_, i) => ({
+        frame: i + 1,
+        deliveries: [],
+        total: null,
+        pending: false,
+        correctionLog: [],
+      }));
+    }
+
+    function isStrikeDelivery(d) {
+      if (!d) return false;
+      if (d.mark === "X") return true;
+      return d.pinfall === 10 && Array.isArray(d.standing) && d.standing.length === 0;
+    }
+
+    function isSpareDelivery(d) {
+      return !!(d && d.mark === "/");
+    }
+
+    function cellMark(frame, index) {
+      const d = frame.deliveries[index];
+      if (!d) return "";
+      if (d.mark === "X") return "X";
+      if (d.mark === "/") return "/";
+      if (d.mark === "-") return "-";
+      const b1 = frame.deliveries[0];
+      const b2 = frame.deliveries[1];
+      const pf = d.pinfall;
+      if (frame.frame === 10) {
+        if (index === 0 && pf === 10) return "X";
+        if (index === 1) {
+          if (isStrikeDelivery(b1)) {
+            if (pf === 10) return "X";
+          } else if (typeof pf === "number" && typeof b1?.pinfall === "number" && b1.pinfall + pf === 10) {
+            return "/";
+          } else if (Array.isArray(d.standing) && d.standing.length === 0 && pf > 0) {
+            return "/";
+          }
+        } else if (index === 2) {
+          if (isStrikeDelivery(b1) && isStrikeDelivery(b2) && pf === 10) return "X";
+          if (isSpareDelivery(b2) && pf === 10) return "X";
+          if (isStrikeDelivery(b1) && !isStrikeDelivery(b2) && !isSpareDelivery(b2)) {
+            if (Array.isArray(d.standing) && d.standing.length === 0) return "/";
+            if (typeof pf === "number" && typeof b2?.pinfall === "number" && b2.pinfall + pf === 10) return "/";
+          }
+        }
+      } else {
+        if (index === 0 && pf === 10) return "X";
+        if (index === 1) {
+          if (typeof pf === "number" && typeof b1?.pinfall === "number" && b1.pinfall + pf === 10) return "/";
+          if (Array.isArray(d.standing) && d.standing.length === 0 && pf > 0) return "/";
+        }
+      }
+      if (pf === 0) return "-";
+      if (typeof pf === "number") return String(pf);
+      return "";
+    }
+
+    function frameCells(frame) {
+      const slots = frame.frame === 10 ? 3 : 2;
+      return Array.from({ length: slots }, (_, i) => cellMark(frame, i));
+    }
+
+    function captureLabel(frameNumber, ballNumber) {
+      const ord = ballNumber === 1 ? "1st" : ballNumber === 2 ? "2nd" : "3rd";
+      return `Practice · Frame ${frameNumber} · ${ord} ball`;
+    }
+
+    function gameHasRepairNeeded(frames) {
+      return (frames || []).some((f) => (f.deliveries || []).some((d) => d && d.needsRepair));
+    }
+
+    function isValidCompletedGame(frames) {
+      if (gameHasRepairNeeded(frames)) return false;
+      const tenth = frames[9];
+      if (!tenth || !tenth.deliveries.length) return false;
+      const d = tenth.deliveries;
+      const b1 = d[0];
+      if (!b1) return false;
+      if (isStrikeDelivery(b1)) return d.length >= 3;
+      if (d.length >= 2 && isSpareDelivery(d[1])) return d.length >= 3;
+      return d.length >= 2 && !isStrikeDelivery(b1) && !isSpareDelivery(d[1]);
+    }
+
+    /** Next delivery that must be entered (sequential). */
+    function nextRequired(frames) {
+      for (let f = 1; f <= 10; f++) {
+        const frame = frames[f - 1];
+        const d = frame.deliveries;
+        if (f < 10) {
+          if (d.length === 0) return { frameNumber: f, ballNumber: 1 };
+          if (isStrikeDelivery(d[0])) continue;
+          if (d.length === 1) return { frameNumber: f, ballNumber: 2 };
+          continue;
+        }
+        if (d.length === 0) return { frameNumber: 10, ballNumber: 1 };
+        if (d.length === 1) return { frameNumber: 10, ballNumber: 2 };
+        if (isStrikeDelivery(d[0]) || isSpareDelivery(d[1])) {
+          if (d.length < 3) return { frameNumber: 10, ballNumber: 3 };
+        }
+      }
+      return null;
+    }
+
+    function inferBeforeFromPrior(frame, ball) {
+      if (ball <= 1) return FULL_RACK.slice();
+      const prev = frame.deliveries[ball - 2];
+      if (frame.frame === 10) {
+        if (ball === 2 && isStrikeDelivery(prev)) return FULL_RACK.slice();
+        if (ball === 3) {
+          const b2 = frame.deliveries[1];
+          if (isStrikeDelivery(b2) || isSpareDelivery(b2)) return FULL_RACK.slice();
+          if (Array.isArray(b2?.standing)) return b2.standing.slice();
+        }
+      }
+      if (prev && Array.isArray(prev.standing)) return prev.standing.slice();
+      return FULL_RACK.slice();
+    }
+
+    function beforeRackFor(frames, frameNumber, ballNumber) {
+      const frame = frames[frameNumber - 1];
+      return inferBeforeFromPrior(frame, ballNumber);
+    }
+
+    /**
+     * Deterministic scoring aligned with accepted ADR-003 / deriveGame rules.
+     * Prototype-only copy — does not import production modules.
+     */
+    function pinfallOf(delivery, priorInFrame) {
+      if (!delivery) return 0;
+      if (typeof delivery.pinfall === "number") return delivery.pinfall;
+      if (delivery.mark === "X") return 10;
+      if (delivery.mark === "/") return Math.max(0, 10 - (priorInFrame || 0));
+      if (delivery.mark === "-") return 0;
+      return 0;
+    }
+
+    function frameDeliveriesPinfalls(frame) {
+      const out = [];
+      for (let i = 0; i < frame.deliveries.length; i++) {
+        // Spare pinfall fallback is relative to the ball that opened this rack:
+        // ball 2 → prior is ball 1; ball 3 after a tenth strike → prior is ball 2.
+        let prior = 0;
+        if (i === 1) prior = out[0] || 0;
+        else if (i === 2) prior = out[0] === 10 ? out[1] || 0 : out[0] || 0;
+        out.push(pinfallOf(frame.deliveries[i], prior));
+      }
+      return out;
+    }
+
+    function frame10Complete(deliveries) {
+      if (deliveries.length <= 1) return false;
+      const a = deliveries[0];
+      const b = deliveries[1];
+      if (a === 10) return deliveries.length === 3;
+      if (a + b === 10) return deliveries.length === 3;
+      return deliveries.length === 2;
+    }
+
+    function frameComplete(frameNumber, deliveries) {
+      if (frameNumber < 10) {
+        if (deliveries.length === 0) return false;
+        if (deliveries[0] === 10) return deliveries.length === 1;
+        return deliveries.length === 2;
+      }
+      return frame10Complete(deliveries);
+    }
+
+    function derivePrototypeScore(frames) {
+      const parsed = [];
+      const stream = [];
+      for (let f = 1; f <= 10; f++) {
+        const deliveries = frameDeliveriesPinfalls(frames[f - 1] || { deliveries: [] });
+        const start = stream.length;
+        stream.push(...deliveries);
+        parsed.push({ frameNumber: f, start, deliveries });
+      }
+
+      const projections = parsed.map(({ frameNumber, start, deliveries }) => {
+        const isStrike = deliveries[0] === 10;
+        const isSpare =
+          !isStrike && deliveries.length >= 2 && deliveries[0] + deliveries[1] === 10;
+        const isOpen = !isStrike && !isSpare && deliveries.length >= 2;
+
+        let score = null;
+        let awaitingBonus = false;
+        let isResolved = false;
+
+        if (frameNumber < 10) {
+          if (isStrike) {
+            const b1 = stream[start + 1];
+            const b2 = stream[start + 2];
+            if (b1 !== undefined && b2 !== undefined) {
+              score = 10 + b1 + b2;
+              isResolved = true;
+            } else {
+              awaitingBonus = deliveries.length > 0;
+            }
+          } else if (isSpare) {
+            const b1 = stream[start + 2];
+            if (b1 !== undefined) {
+              score = 10 + b1;
+              isResolved = true;
+            } else {
+              awaitingBonus = true;
+            }
+          } else if (isOpen) {
+            score = deliveries[0] + deliveries[1];
+            isResolved = true;
+          } else if (deliveries.length === 1) {
+            awaitingBonus = false;
+            isResolved = false;
+          }
+        } else {
+          const a = deliveries[0];
+          const b = deliveries[1];
+          if (a === 10) {
+            if (deliveries.length >= 2) score = 10 + deliveries[1];
+            if (deliveries.length === 3) {
+              score = 10 + deliveries[1] + deliveries[2];
+              isResolved = true;
+            } else {
+              awaitingBonus = true;
+            }
+          } else if (a !== undefined && b !== undefined && a + b === 10) {
+            if (deliveries.length === 3) {
+              score = 10 + deliveries[2];
+              isResolved = true;
+            } else {
+              awaitingBonus = true;
+            }
+          } else if (a !== undefined && b !== undefined && a + b < 10) {
+            score = a + b;
+            isResolved = true;
+          } else if (a !== undefined) {
+            isResolved = false;
+          }
+        }
+
+        return {
+          frameNumber,
+          deliveries,
+          score,
+          isResolved,
+          awaitingBonus,
+          started: deliveries.length > 0,
+          complete: frameComplete(frameNumber, deliveries),
+        };
+      });
+
+      const runningTotals = [];
+      let running = 0;
+      for (const p of projections) {
+        if (p.score !== null && p.isResolved) {
+          running += p.score;
+          runningTotals.push(running);
+        } else {
+          runningTotals.push(null);
+        }
+      }
+
+      const complete = parsed.every((f) => frameComplete(f.frameNumber, f.deliveries));
+      const allResolved = projections.every((p) => !p.started || p.isResolved);
+      const finalTotal =
+        complete && allResolved && runningTotals[9] != null ? runningTotals[9] : null;
+
+      return { projections, runningTotals, finalTotal, complete };
+    }
+
+    function applyScores(game) {
+      if (!game || !game.frames) return null;
+      const derived = derivePrototypeScore(game.frames);
+      game.frames.forEach((frame, i) => {
+        const p = derived.projections[i];
+        frame.frameScore = p.isResolved ? p.score : null;
+        frame.total = derived.runningTotals[i];
+        frame.pending = p.started && !p.isResolved;
+        frame.awaitingBonus = p.awaitingBonus;
+      });
+      game.finalTotal = derived.finalTotal;
+      game.scoringComplete = derived.complete && derived.finalTotal != null;
+      return derived;
+    }
+
+    function finalScore(frames) {
+      const derived = derivePrototypeScore(frames);
+      return derived.finalTotal;
+    }
+
+    function deliveriesFromRolls(rolls) {
+      return rolls.map((pf, i) => {
+        if (pf === 10) {
+          if (i === 0) return { pinfall: 10, mark: "X", standing: [], status: "EFFECTIVE" };
+          if (i === 1 && rolls[0] === 10) {
+            return { pinfall: 10, mark: "X", standing: [], status: "EFFECTIVE" };
+          }
+          if (i === 2 && (rolls[1] === 10 || rolls[0] + rolls[1] === 10)) {
+            return { pinfall: 10, mark: "X", standing: [], status: "EFFECTIVE" };
+          }
+        }
+        if (i === 1 && rolls[0] < 10 && rolls[0] + pf === 10) {
+          return { pinfall: pf, mark: "/", standing: [], status: "EFFECTIVE" };
+        }
+        if (i === 2 && rolls[0] === 10 && rolls[1] < 10 && rolls[1] + pf === 10) {
+          return { pinfall: pf, mark: "/", standing: [], status: "EFFECTIVE" };
+        }
+        if (pf === 0) {
+          return {
+            pinfall: 0,
+            mark: "-",
+            standing: i === 0 ? FULL_RACK.slice() : i === 1 && rolls[0] === 10 ? FULL_RACK.slice() : [10],
+            status: "EFFECTIVE",
+          };
+        }
+        const remaining = [];
+        for (let n = pf + 1; n <= 10; n++) remaining.push(n);
+        const onFreshRack = i === 0 || (i === 1 && rolls[0] === 10) || (i === 2 && rolls[1] === 10);
+        return {
+          pinfall: pf,
+          mark: null,
+          standing: onFreshRack ? remaining : [],
+          status: "EFFECTIVE",
+        };
+      });
+    }
+
+    function fillGameFromRollSpecs(game, specs) {
+      specs.forEach((rolls, i) => {
+        game.frames[i] = {
+          frame: i + 1,
+          deliveries: deliveriesFromRolls(rolls),
+          total: null,
+          pending: false,
+          correctionLog: [],
+        };
+      });
+      applyScores(game);
+      if (game.scoringComplete) {
+        game.status = "complete";
+        game.label = `Practice · Game finished · ${game.finalTotal}`;
+      }
+    }
+
+    function makeGameShell(partial) {
+      return Object.assign(
+        {
+          id: "g-" + Math.random().toString(36).slice(2, 8),
+          date: "2026-09-23",
+          gameNumber: 1,
+          status: "active",
+          frames: emptyFrames(),
+          frameNumber: 1,
+          ballNumber: 1,
+          beforeRack: FULL_RACK.slice(),
+          label: captureLabel(1, 1),
+          notice: "",
+          finalTotal: null,
+          scoringComplete: false,
+        },
+        partial,
+      );
+    }
+
+    /** Fictional library shown on home (opening history does not create games). */
+    function seedLibrary() {
+      // Accepted MIXED_GAME vector → 169 (tests/scoring.test.ts)
+      const g1 = makeGameShell({
+        id: "hist-1",
+        date: "2026-09-22",
+        gameNumber: 1,
+      });
+      fillGameFromRollSpecs(g1, [
+        [10],
+        [3, 6],
+        [9, 1],
+        [7, 2],
+        [10],
+        [10],
+        [8, 2],
+        [9, 0],
+        [10],
+        [7, 3, 9],
+      ]);
+
+      // Classic high game ending X 9 / in tenth
+      const g2 = makeGameShell({
+        id: "hist-2",
+        date: "2026-09-22",
+        gameNumber: 2,
+      });
+      fillGameFromRollSpecs(g2, [
+        [10],
+        [7, 3],
+        [9, 0],
+        [10],
+        [10],
+        [8, 1],
+        [10],
+        [9, 1],
+        [10],
+        [10, 9, 1],
+      ]);
+
+      // Completed 96: [9,0]×8, strike, open 7|0 → 72+17+7 = 96
+      const g96 = makeGameShell({
+        id: "hist-96",
+        date: "2026-09-23",
+        gameNumber: 2,
+      });
+      fillGameFromRollSpecs(
+        g96,
+        Array.from({ length: 8 }, () => [9, 0]).concat([[10], [7, 0]]),
+      );
+
+      // Completed tenth X 9 /
+      const gx91 = makeGameShell({
+        id: "hist-x91",
+        date: "2026-09-23",
+        gameNumber: 3,
+      });
+      fillGameFromRollSpecs(
+        gx91,
+        Array.from({ length: 9 }, () => [9, 0]).concat([[10, 9, 1]]),
+      );
+
+      const g3 = makeGameShell({
+        id: "active-1",
+        date: "2026-09-23",
+        gameNumber: 1,
+        status: "active",
+      });
+      g3.frames[0] = {
+        frame: 1,
+        deliveries: [{ pinfall: 10, mark: "X", standing: [], status: "EFFECTIVE" }],
+        total: null,
+        pending: true,
+        correctionLog: [],
+      };
+      g3.frames[1] = {
+        frame: 2,
+        deliveries: [
+          { pinfall: 8, mark: null, standing: [2, 10], status: "EFFECTIVE" },
+          { pinfall: 1, mark: null, standing: [10], status: "EFFECTIVE" },
+        ],
+        total: null,
+        pending: false,
+        correctionLog: [],
+      };
+      applyScores(g3);
+      g3.status = "active";
+      g3.frameNumber = 3;
+      g3.ballNumber = 1;
+      g3.beforeRack = FULL_RACK.slice();
+      g3.label = captureLabel(3, 1);
+
+      return [g1, g2, g96, gx91, g3];
+    }
+
+    const library = seedLibrary();
+    let activeDemo = "home";
+    let ui = {
+      mode: "home", // home | play | edit | review
+      game: null,
+      edit: null,
+      snapshot: null,
+      draftStanding: null,
+      standingTouched: false,
+      notice: "",
+      returnToComplete: false,
+      metricsRange: "all",
+    };
+
+    function currentFrames() {
+      return ui.game ? ui.game.frames : emptyFrames();
+    }
+
+    function syncPlayCursor() {
+      if (!ui.game || ui.mode === "edit") return;
+      applyScores(ui.game);
+      const next = nextRequired(ui.game.frames);
+      if (!next) {
+        markGameComplete(ui.game);
+        ui.mode = "review";
+        return;
+      }
+      ui.game.frameNumber = next.frameNumber;
+      ui.game.ballNumber = next.ballNumber;
+      ui.game.beforeRack = beforeRackFor(ui.game.frames, next.frameNumber, next.ballNumber);
+      ui.game.label = captureLabel(next.frameNumber, next.ballNumber);
+      ui.game.status = "active";
+      ui.mode = "play";
+    }
+
+    function resetDraft() {
+      ui.draftStanding = null;
+      ui.standingTouched = false;
+    }
+
+    function availablePins() {
+      return ui.game && ui.game.beforeRack ? ui.game.beforeRack.slice() : FULL_RACK.slice();
+    }
+
+    function draftStandingSet() {
+      if (!ui.standingTouched) return null;
+      return (ui.draftStanding || []).slice().sort((a, b) => a - b);
+    }
+
+    function previewFromStanding() {
+      if (!ui.standingTouched) return { kind: "untouched" };
+      const before = availablePins();
+      const standing = draftStandingSet() || [];
+      return {
+        kind: "preview",
+        pinfall: before.length - standing.length,
+        standing,
+        beforeCount: before.length,
+      };
+    }
+
+    function beginsStrikeEligibleRack() {
+      if (!ui.game || !ui.game.beforeRack || ui.game.beforeRack.length !== 10) return false;
+      const ball = ui.game.ballNumber;
+      if (ball === 1) return true;
+      if (ui.game.frameNumber !== 10) return false;
+      const frame = ui.game.frames[9];
+      if (ball === 2) return isStrikeDelivery(frame.deliveries[0]);
+      if (ball === 3) {
+        const b2 = frame.deliveries[1];
+        return isStrikeDelivery(b2) || isSpareDelivery(b2);
+      }
+      return false;
+    }
+
+    function canStrike() {
+      if (ui.mode === "home" || (ui.mode === "review" && !ui.edit)) return false;
+      return beginsStrikeEligibleRack();
+    }
+
+    function markGameComplete(game) {
+      if (!game) return;
+      applyScores(game);
+      game.status = "complete";
+      game.beforeRack = null;
+      const total = game.finalTotal;
+      game.label =
+        "Practice · Game finished" + (total != null ? ` · ${total}` : "");
+    }
+
+    function isListedComplete(game) {
+      if (!game) return false;
+      if (game.status === "complete" || game.scoringComplete) return true;
+      applyScores(game);
+      return !!(game.scoringComplete || isValidCompletedGame(game.frames));
+    }
+
+    function canSpare() {
+      if (ui.mode === "home" || (ui.mode === "review" && !ui.edit)) return false;
+      if (beginsStrikeEligibleRack()) return false;
+      if (!ui.game || !ui.game.beforeRack || ui.game.beforeRack.length === 0) return false;
+      if (ui.game.frameNumber < 10) return ui.game.ballNumber === 2;
+      // Tenth
+      if (ui.game.ballNumber === 2) {
+        const b1 = ui.game.frames[9].deliveries[0];
+        // After a non-strike first ball only (not after X — that is a fresh rack)
+        return b1 && !isStrikeDelivery(b1);
+      }
+      if (ui.game.ballNumber === 3) {
+        const b1 = ui.game.frames[9].deliveries[0];
+        const b2 = ui.game.frames[9].deliveries[1];
+        // After X then open (e.g. X 9): / clears remaining pins on this rack
+        if (isStrikeDelivery(b1) && b2 && !isStrikeDelivery(b2) && !isSpareDelivery(b2)) {
+          return true;
+        }
+        return false;
+      }
+      return false;
+    }
+
+    function tenthFillLegal(delivery) {
+      if (!ui.game || ui.game.frameNumber !== 10) return { ok: true };
+      const frame = ui.game.frames[9];
+      const ball = ui.edit ? ui.edit.ballNumber : ui.game.ballNumber;
+      const pinfall = delivery.pinfall;
+      if (typeof pinfall !== "number" || pinfall < 0 || pinfall > 10) {
+        return { ok: false, message: "Pinfall must be 0–10." };
+      }
+      const d = frame.deliveries;
+      if (ball === 2) {
+        const first = pinfallOf(d[0], 0);
+        // After X, second ball may be 0–10 (fresh rack). Otherwise cannot exceed remaining.
+        if (first !== 10 && first + pinfall > 10) {
+          return { ok: false, message: "Second ball cannot exceed pins remaining." };
+        }
+        return { ok: true };
+      }
+      if (ball === 3) {
+        const first = pinfallOf(d[0], 0);
+        const second = pinfallOf(d[1], first);
+        if (first !== 10 && first + second !== 10) {
+          return { ok: false, message: "No third ball on an open tenth." };
+        }
+        // After X then non-strike: third ball only on remaining pins
+        if (first === 10 && second < 10 && pinfall > 10 - second) {
+          return {
+            ok: false,
+            message: "Third ball can only clear pins still standing after the second ball.",
+          };
+        }
+        return { ok: true };
+      }
+      return { ok: true };
+    }
+
+    function canGutter() {
+      if (ui.mode === "home" || (ui.mode === "review" && !ui.edit)) return false;
+      return !!(ui.game && ui.game.beforeRack && ui.game.beforeRack.length > 0);
+    }
+
+    function computeMark(pinfall, standing, beforeCount) {
+      if (canStrike() && pinfall === beforeCount && beforeCount === 10 && standing && standing.length === 0) {
+        return "X";
+      }
+      if (canSpare() && standing && standing.length === 0 && pinfall === beforeCount) return "/";
+      if (pinfall === 0) return "-";
+      return null;
+    }
+
+    function showHome() {
+      ui.mode = "home";
+      ui.game = null;
+      ui.edit = null;
+      ui.snapshot = null;
+      resetDraft();
+      ui.notice = "";
+      activeDemo = "home";
+      // Normalize: finished games never remain Active in history
+      library.forEach((g) => {
+        if (isListedComplete(g)) markGameComplete(g);
+      });
+      render();
+    }
+
+    function openGame(gameId) {
+      const g = library.find((x) => x.id === gameId);
+      if (!g) return;
+      ui.game = g;
+      ui.edit = null;
+      ui.snapshot = null;
+      resetDraft();
+      applyScores(g);
+      if (isListedComplete(g)) {
+        markGameComplete(g);
+        ui.mode = "review";
+        ui.notice = "Opened from history. No new game created.";
+      } else {
+        g.status = "active";
+        syncPlayCursor();
+        ui.notice = "Resumed active game. Enter the next delivery in order.";
+      }
+      render();
+    }
+
+    function startNewGame() {
+      const today = "2026-09-23";
+      const todays = library.filter((g) => g.date === today);
+      const gameNumber = todays.length + 1;
+      const g = makeGameShell({
+        date: today,
+        gameNumber,
+        status: "active",
+        notice: "New game started. Enter Frame 1 · 1st ball.",
+      });
+      library.unshift(g);
+      ui.game = g;
+      ui.mode = "play";
+      ui.edit = null;
+      resetDraft();
+      ui.notice = g.notice;
+      activeDemo = "fresh";
+      render();
+    }
+
+    function doneForTheDay() {
+      if (ui.game) {
+        if (isListedComplete(ui.game)) markGameComplete(ui.game);
+        else ui.game.status = "active"; // unfinished stay resumable
+      }
+      showHome();
+      ui.notice = "Done for the Day — back on home. No new game created.";
+      render();
+    }
+
+    function loadDemo(id) {
+      activeDemo = id;
+      if (id === "home") {
+        showHome();
+        ui.notice = "Home screen with score history by date.";
+        render();
+        return;
+      }
+      if (id === "fresh") {
+        startNewGame();
+        return;
+      }
+      if (id === "leave-7-10") {
+        const g = makeGameShell({ date: "2026-09-23", gameNumber: 99, status: "active" });
+        library.unshift(g);
+        ui.game = g;
+        ui.mode = "play";
+        ui.notice = "Select pins 7 and 10 standing, then tap ✓.";
+        render();
+        return;
+      }
+      if (id === "spare-after-leave") {
+        const g = makeGameShell({ date: "2026-09-23", gameNumber: 98, status: "active" });
+        g.frames[0].deliveries = [
+          { pinfall: 8, mark: null, standing: [7, 10], status: "EFFECTIVE" },
+        ];
+        g.frames[0].pending = true;
+        library.unshift(g);
+        ui.game = g;
+        syncPlayCursor();
+        ui.notice = "Tap / to save spare immediately.";
+        render();
+        return;
+      }
+      if (id === "gutter-then-spare") {
+        const g = makeGameShell({ date: "2026-09-23", gameNumber: 97, status: "active" });
+        library.unshift(g);
+        ui.game = g;
+        ui.mode = "play";
+        ui.notice = "Tap G (Gutter) to save 0 immediately, then / on ball 2.";
+        render();
+        return;
+      }
+      if (id === "tenth-xxx") {
+        const g = makeGameShell({
+          id: "demo-xxx",
+          date: "2026-09-23",
+          gameNumber: 3,
+        });
+        fillGameFromRollSpecs(
+          g,
+          Array.from({ length: 9 }, () => [10]).concat([[10, 10, 10]]),
+        );
+        library.unshift(g);
+        ui.game = g;
+        ui.mode = "review";
+        ui.notice = "Perfect game — tenth shows X X X; final 300.";
+        render();
+        return;
+      }
+      if (id === "tenth-x91") {
+        const g = makeGameShell({ date: "2026-09-23", gameNumber: 96, status: "active" });
+        fillGameFromRollSpecs(
+          g,
+          Array.from({ length: 9 }, () => [9, 0]).concat([[10, 9]]),
+        );
+        g.status = "active";
+        g.scoringComplete = false;
+        library.unshift(g);
+        ui.game = g;
+        syncPlayCursor();
+        ui.notice = "Tenth after X 9 — remaining pin only. Tap / to complete.";
+        render();
+        return;
+      }
+      if (id === "tenth-x91-done") {
+        openGame("hist-x91");
+        ui.notice =
+          "Completed game with tenth X 9 /. Final " +
+          (ui.game && ui.game.finalTotal != null ? ui.game.finalTotal : "") +
+          ". Status is Complete, not Active.";
+        render();
+        return;
+      }
+      if (id === "score-96") {
+        openGame("hist-96");
+        ui.notice =
+          "Completed 96 — shown as Complete with final 96. Start New Game / Done for the Day available.";
+        render();
+        return;
+      }
+      if (id === "correct-frame") {
+        openGame("active-1");
+        ui.notice = "Tap Frame 1 or 2 to correct an entered ball. Frame 4+ stays locked.";
+        render();
+        return;
+      }
+      if (id === "completed") {
+        openGame("hist-2");
+        ui.notice = "Completed game — Start New Game or Done for the Day.";
+        render();
+      }
+    }
+
+    function toggleStanding(pin) {
+      const avail = availablePins();
+      if (!avail.includes(pin)) return;
+      ui.standingTouched = true;
+      const cur = new Set(ui.draftStanding || []);
+      if (cur.has(pin)) cur.delete(pin);
+      else cur.add(pin);
+      ui.draftStanding = [...cur].sort((a, b) => a - b);
+      ui.notice = "";
+      render();
+    }
+
+    function immediateStrike() {
+      if (!canStrike()) return;
+      const before = availablePins();
+      applyDelivery({ pinfall: before.length, standing: [], mark: "X", status: "EFFECTIVE" });
+    }
+
+    function immediateSpare() {
+      if (!canSpare()) return;
+      const before = availablePins();
+      applyDelivery({ pinfall: before.length, standing: [], mark: "/", status: "EFFECTIVE" });
+    }
+
+    function immediateGutter() {
+      if (!canGutter()) return;
+      const before = availablePins();
+      applyDelivery({
+        pinfall: 0,
+        standing: before.slice(),
+        mark: "-",
+        status: "EFFECTIVE",
+      });
+    }
+
+    function saveCapture() {
+      if (!ui.game) return;
+      if (ui.mode === "review" && !ui.edit) {
+        ui.notice = "Game complete — use Start New Game or Done for the Day.";
+        render();
+        return;
+      }
+      if (!ui.standingTouched) {
+        ui.notice =
+          "Nothing saved. Tap standing pins, then ✓ — or use X / G / / when legal.";
+        render();
+        return;
+      }
+      const preview = previewFromStanding();
+      if (!preview || preview.kind !== "preview") return;
+      const mark = computeMark(preview.pinfall, preview.standing, preview.beforeCount);
+      applyDelivery({
+        pinfall: preview.pinfall,
+        standing: preview.standing,
+        mark,
+        status: "EFFECTIVE",
+      });
+    }
+
+    function applyDelivery(delivery) {
+      const frame = ui.game.frames[ui.game.frameNumber - 1];
+      const legality = tenthFillLegal(delivery);
+      if (!legality.ok) {
+        ui.notice = legality.message;
+        render();
+        return;
+      }
+      const record = {
+        pinfall: delivery.pinfall,
+        mark: delivery.mark || null,
+        standing: delivery.standing,
+        status: "EFFECTIVE",
+        needsRepair: false,
+      };
+
+      if (ui.edit) {
+        const bi = ui.edit.ballNumber - 1;
+        const previous = frame.deliveries[bi] ? clone(frame.deliveries[bi]) : null;
+        if (!frame.correctionLog) frame.correctionLog = [];
+        if (previous) {
+          frame.correctionLog.push({ ballNumber: bi + 1, previous, savedAt: Date.now() });
+        }
+        frame.deliveries[bi] = record;
+        let repairNote = "";
+        for (let i = bi + 1; i < frame.deliveries.length; i++) {
+          frame.deliveries[i] = Object.assign({}, frame.deliveries[i], { needsRepair: true });
+          repairNote = " Later balls in this frame may need repair.";
+        }
+        const returnComplete = ui.edit.returnToComplete;
+        ui.edit = null;
+        ui.snapshot = null;
+        resetDraft();
+        applyScores(ui.game);
+        if (returnComplete && isListedComplete(ui.game)) {
+          markGameComplete(ui.game);
+          ui.mode = "review";
+        } else if (isListedComplete(ui.game)) {
+          markGameComplete(ui.game);
+          ui.mode = "review";
+        } else {
+          syncPlayCursor();
+        }
+        ui.notice =
+          `Saved correction for Frame ${frame.frame} · Ball ${bi + 1}.` +
+          ` Standing ${record.standing.length ? record.standing.join(", ") : "none"}; pinfall ${record.pinfall}.` +
+          repairNote;
+        render();
+        return;
+      }
+
+      // Sequential: only append on the required next delivery
+      const next = nextRequired(ui.game.frames);
+      if (
+        !next ||
+        next.frameNumber !== ui.game.frameNumber ||
+        next.ballNumber !== ui.game.ballNumber
+      ) {
+        ui.notice = "Out of order — enter the next required delivery only.";
+        render();
+        return;
+      }
+
+      frame.deliveries.push(record);
+
+      const savedNote = `Saved: pinfall ${record.pinfall}${
+        record.standing.length ? `; standing ${record.standing.join(", ")}` : "; standing none"
+      }.`;
+      resetDraft();
+      applyScores(ui.game);
+      syncPlayCursor();
+      if (ui.mode === "review") {
+        ui.notice =
+          savedNote +
+          (ui.game.finalTotal != null
+            ? ` Game complete · ${ui.game.finalTotal}.`
+            : " Game complete.");
+      } else {
+        ui.notice = savedNote + ` Next: ${ui.game.label.replace("Practice · ", "")}.`;
+      }
+      render();
+    }
+
+    function canOpenForCorrection(frameNumber, ballNumber) {
+      const frame = ui.game.frames[frameNumber - 1];
+      if (!frame) return false;
+      // May correct any already-entered delivery
+      if (ballNumber && frame.deliveries[ballNumber - 1]) return true;
+      if (!ballNumber && frame.deliveries.length > 0) return true;
+      // May open the current next delivery (stay on it)
+      const next = nextRequired(ui.game.frames);
+      if (next && next.frameNumber === frameNumber) {
+        if (!ballNumber || ballNumber === next.ballNumber) return true;
+      }
+      return false;
+    }
+
+    function openFrame(frameNumber, ballNumber) {
+      if (!ui.game) return;
+      const frame = ui.game.frames[frameNumber - 1];
+      if (!frame) return;
+
+      let ball = ballNumber;
+      if (!ball) {
+        if (frame.deliveries.length === 0) {
+          const next = nextRequired(ui.game.frames);
+          if (next && next.frameNumber === frameNumber) ball = next.ballNumber;
+          else ball = 1;
+        } else {
+          ball = frame.deliveries.length;
+        }
+      }
+
+      if (!canOpenForCorrection(frameNumber, ball)) {
+        ui.notice =
+          "Deliveries must be entered in order. That frame/ball is not available yet.";
+        render();
+        return;
+      }
+
+      const existing = frame.deliveries[ball - 1] || null;
+      const isCorrection = !!existing;
+      if (!isCorrection) {
+        // Stay on current play cursor — do not jump ahead
+        const next = nextRequired(ui.game.frames);
+        if (!next || next.frameNumber !== frameNumber || next.ballNumber !== ball) {
+          ui.notice = "Enter the current delivery first.";
+          render();
+          return;
+        }
+        ui.notice = "";
+        render();
+        return;
+      }
+
+      ui.snapshot = clone(ui.game.frames);
+      ui.edit = {
+        frameNumber,
+        ballNumber: ball,
+        existing: clone(existing),
+        returnToComplete: ui.mode === "review" || ui.game.status === "complete",
+      };
+      ui.mode = "edit";
+      ui.game.frameNumber = frameNumber;
+      ui.game.ballNumber = ball;
+      ui.game.beforeRack =
+        ball === 1 ? FULL_RACK.slice() : inferBeforeFromPrior(frame, ball);
+      ui.draftStanding = Array.isArray(existing.standing)
+        ? existing.standing.filter((p) => ui.game.beforeRack.includes(p)).sort((a, b) => a - b)
+        : [];
+      ui.standingTouched = true;
+      const pinfall = ui.game.beforeRack.length - ui.draftStanding.length;
+      ui.notice = existing.needsRepair
+        ? `Repair needed. Standing restored — edit and tap ✓.`
+        : `Standing restored (${
+            ui.draftStanding.length ? ui.draftStanding.join(", ") : "none"
+          }). Pinfall ${pinfall}. Edit, then tap ✓.`;
+      render();
+    }
+
+    function cancelEdit() {
+      if (ui.snapshot) ui.game.frames = clone(ui.snapshot);
+      const returnComplete = ui.edit && ui.edit.returnToComplete;
+      ui.edit = null;
+      ui.snapshot = null;
+      resetDraft();
+      ui.notice = "Cancel — record unchanged.";
+      if (returnComplete && isListedComplete(ui.game)) {
+        markGameComplete(ui.game);
+        ui.mode = "review";
+      } else {
+        syncPlayCursor();
+      }
+      render();
+    }
+
+    function renderSide() {
+      const list = document.getElementById("scenarioList");
+      list.innerHTML = DEMOS.map(
+        (s) =>
+          `<button type="button" class="${s.id === activeDemo ? "active" : ""}" data-id="${s.id}">
+            <strong>${s.title}</strong><br/><span style="opacity:.8">${s.blurb}</span>
+          </button>`,
+      ).join("");
+      list.querySelectorAll("button").forEach((btn) => {
+        btn.addEventListener("click", () => loadDemo(btn.dataset.id));
+      });
+    }
+
+    /** Placeholder / range-aware metrics from completed games only. PBA formula undefined. */
+    function parseProtoDate(iso) {
+      const [y, m, d] = iso.split("-").map(Number);
+      return new Date(y, m - 1, d);
+    }
+
+    function rangeStartDate(rangeId) {
+      const today = parseProtoDate(PROTO_TODAY);
+      if (rangeId === "all") return null;
+      if (rangeId === "week") {
+        const d = new Date(today);
+        d.setDate(d.getDate() - 6);
+        return d;
+      }
+      if (rangeId === "month") return new Date(today.getFullYear(), today.getMonth(), 1);
+      if (rangeId === "year") return new Date(today.getFullYear(), 0, 1);
+      return null;
+    }
+
+    function gameDateInRange(isoDate, rangeId) {
+      const g = parseProtoDate(isoDate);
+      const today = parseProtoDate(PROTO_TODAY);
+      if (g > today) return false;
+      const start = rangeStartDate(rangeId);
+      if (!start) return true;
+      return g >= start && g <= today;
+    }
+
+    function meanScore(scores) {
+      if (!scores.length) return null;
+      const sum = scores.reduce((a, b) => a + b, 0);
+      return Math.round((sum / scores.length) * 10) / 10;
+    }
+
+    /** Calendar week = Sunday–Saturday containing the given persisted date. */
+    function calendarWeekKey(isoDate) {
+      const d = parseProtoDate(isoDate);
+      const start = new Date(d);
+      start.setDate(d.getDate() - d.getDay());
+      const y = start.getFullYear();
+      const m = String(start.getMonth() + 1).padStart(2, "0");
+      const day = String(start.getDate()).padStart(2, "0");
+      return `${y}-${m}-${day}`;
+    }
+
+    function completedGamesForRange(rangeId) {
+      return library
+        .filter((g) => {
+          if (isListedComplete(g)) markGameComplete(g);
+          return isListedComplete(g) && typeof g.finalTotal === "number";
+        })
+        .filter((g) => gameDateInRange(g.date, rangeId))
+        .slice()
+        .sort((a, b) => {
+          if (a.date !== b.date) return a.date < b.date ? -1 : 1;
+          return a.gameNumber - b.gameNumber;
+        });
+    }
+
+    function computeHomeMetrics(rangeId) {
+      const games = completedGamesForRange(rangeId);
+      const qualifyingGames = games.length;
+      const enough = qualifyingGames >= 1;
+      const scores = games.map((g) => g.finalTotal);
+      const byDateMap = {};
+      const byWeekMap = {};
+      games.forEach((g) => {
+        if (!byDateMap[g.date]) byDateMap[g.date] = [];
+        byDateMap[g.date].push(g.finalTotal);
+        const weekKey = calendarWeekKey(g.date);
+        if (!byWeekMap[weekKey]) byWeekMap[weekKey] = [];
+        byWeekMap[weekKey].push(g.finalTotal);
+      });
+      const averageByDateRows = Object.keys(byDateMap)
+        .sort((a, b) => (a < b ? 1 : -1))
+        .map((date) => {
+          const weekScores = byWeekMap[calendarWeekKey(date)] || [];
+          return {
+            date,
+            average: meanScore(byDateMap[date]),
+            weekAverage: meanScore(weekScores),
+            count: byDateMap[date].length,
+          };
+        });
+      const recent = games.slice(-ROLLING_WINDOW);
+      return {
+        rangeId,
+        enough,
+        qualifyingGames,
+        overallAverage: enough ? meanScore(scores) : null,
+        averageByDateRows,
+        rollingAverage: recent.length ? meanScore(recent.map((g) => g.finalTotal)) : null,
+        pbaHandicap: null,
+        pbaDisplay: PBA_UNDEFINED,
+        message: enough ? null : INSUFFICIENT,
+      };
+    }
+
+    function setMetricsRange(rangeId) {
+      ui.metricsRange = rangeId;
+      ui.notice = `Metrics range: ${METRIC_RANGES.find((r) => r.id === rangeId)?.label || rangeId}.`;
+      render();
+    }
+
+    function renderHome(app) {
+      const ctx = document.createElement("p");
+      ctx.className = "context";
+      ctx.textContent = "Home";
+      app.appendChild(ctx);
+
+      const lead = document.createElement("p");
+      lead.className = "lead";
+      lead.textContent = "Score history by date. Opening a game does not create a new one.";
+      app.appendChild(lead);
+
+      const panel = document.createElement("section");
+      panel.className = "panel";
+
+      const metrics = computeHomeMetrics(ui.metricsRange);
+      const cellAvg = (v) => (metrics.enough && v != null ? String(v) : INSUFFICIENT);
+
+      const metricsCard = document.createElement("div");
+      metricsCard.className = "metrics-card";
+      metricsCard.setAttribute("aria-label", "Home metrics");
+
+      const rangeBar = document.createElement("div");
+      rangeBar.className = "range-bar";
+      rangeBar.setAttribute("role", "group");
+      rangeBar.setAttribute("aria-label", "Metrics date range");
+      METRIC_RANGES.forEach((r) => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.textContent = r.label;
+        b.className = r.id === ui.metricsRange ? "active" : "";
+        b.setAttribute("aria-pressed", r.id === ui.metricsRange ? "true" : "false");
+        b.addEventListener("click", () => setMetricsRange(r.id));
+        rangeBar.appendChild(b);
+      });
+      metricsCard.appendChild(rangeBar);
+
+      const title = document.createElement("h3");
+      title.textContent = "Your metrics";
+      metricsCard.appendChild(title);
+
+      const rows = document.createElement("div");
+      const abdDetail =
+        metrics.averageByDateRows.length > 0
+          ? metrics.averageByDateRows
+              .map((row) => {
+                const value = metrics.enough ? row.average : INSUFFICIENT;
+                const weekValue =
+                  metrics.enough && row.weekAverage != null ? row.weekAverage : INSUFFICIENT;
+                return `<div class="abd-row">${row.date} — Average score: <span class="score-part">${value}</span> — Week average: <span class="score-part">${weekValue}</span></div>`;
+              })
+              .join("")
+          : `<div class="abd-row">Average score: <span class="score-part">${INSUFFICIENT}</span> — Week average: <span class="score-part">${INSUFFICIENT}</span></div>`;
+
+      rows.innerHTML = `
+        <div class="metrics-row"><span class="label">Overall Average</span><span class="value">${cellAvg(metrics.overallAverage)}</span></div>
+        <div class="metrics-row emphasis"><span class="label">Average by Date</span><span class="value">${
+          metrics.enough ? `${metrics.averageByDateRows.length} date(s)` : INSUFFICIENT
+        }</span></div>
+        <div class="metrics-by-date" role="group" aria-label="Average by Date detail">
+          <p class="abd-title">Average by Date</p>
+          ${abdDetail}
+        </div>
+        <div class="metrics-row"><span class="label">Rolling Average</span><span class="value">${cellAvg(metrics.rollingAverage)}</span></div>
+        <div class="metrics-row"><span class="label">PBA Handicap Score</span><span class="value">${metrics.pbaDisplay}</span></div>
+        <div class="metrics-row"><span class="label">Qualifying Games</span><span class="value">${metrics.qualifyingGames}</span></div>
+        ${
+          metrics.message
+            ? `<p class="metrics-note">${metrics.message}</p>`
+            : `<p class="metrics-note">Based on completed games in the selected range. Original dates and scores preserved.</p>`
+        }
+        <p class="hint" style="margin-top:6px">PBA handicap is display-only — formula not defined or approved. Not production-ready.</p>
+      `;
+      metricsCard.appendChild(rows);
+      panel.appendChild(metricsCard);
+
+      const byDate = {};
+      library.forEach((g) => {
+        if (isListedComplete(g)) markGameComplete(g);
+        if (!gameDateInRange(g.date, ui.metricsRange)) return;
+        if (!byDate[g.date]) byDate[g.date] = [];
+        byDate[g.date].push(g);
+      });
+      const dates = Object.keys(byDate).sort((a, b) => (a < b ? 1 : -1));
+
+      dates.forEach((date) => {
+        const group = document.createElement("div");
+        group.className = "date-group";
+        const completedScores = byDate[date]
+          .filter((g) => {
+            if (isListedComplete(g)) markGameComplete(g);
+            return (
+              isListedComplete(g) &&
+              g.status === "complete" &&
+              typeof g.finalTotal === "number"
+            );
+          })
+          .map((g) => g.finalTotal);
+        const dateAvg = meanScore(completedScores);
+        const h = document.createElement("h3");
+        h.innerHTML = `<span class="date-label">${date}</span><span class="date-avg">Average: <span class="score-part">${
+          dateAvg != null ? dateAvg : INSUFFICIENT
+        }</span></span>`;
+        group.appendChild(h);
+        byDate[date]
+          .slice()
+          .sort((a, b) => a.gameNumber - b.gameNumber)
+          .forEach((g) => {
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "game-row";
+            const complete = isListedComplete(g);
+            const score = complete
+              ? g.finalTotal != null
+                ? g.finalTotal
+                : finalScore(g.frames)
+              : "…";
+            const statusLabel = complete ? "Complete" : "Active";
+            btn.innerHTML = `<span>Game ${g.gameNumber}<br/><span class="meta">${statusLabel}</span></span><span class="score">${
+              score == null ? "—" : score
+            }</span>`;
+            btn.addEventListener("click", () => openGame(g.id));
+            group.appendChild(btn);
+          });
+        panel.appendChild(group);
+      });
+
+      const actions = document.createElement("div");
+      actions.className = "actions";
+      actions.innerHTML = '<button type="button" class="primary" id="btnStartNew">Start New Game</button>';
+      panel.appendChild(actions);
+
+      if (ui.notice) {
+        const st = document.createElement("div");
+        st.className = "status";
+        st.textContent = ui.notice;
+        panel.appendChild(st);
+      }
+      app.appendChild(panel);
+    }
+
+    function renderScorecard(root) {
+      const sc = document.createElement("div");
+      sc.className = "scorecard";
+      sc.setAttribute("role", "group");
+      sc.setAttribute("aria-label", "Scorecard");
+      const next = ui.game ? nextRequired(ui.game.frames) : null;
+      currentFrames().forEach((frame) => {
+        const el = document.createElement("button");
+        el.type = "button";
+        const isCurrent =
+          next && next.frameNumber === frame.frame && ui.mode === "play" && !ui.edit;
+        const selected = ui.edit && ui.edit.frameNumber === frame.frame;
+        el.className =
+          "frame" + (selected ? " selected" : "") + (isCurrent ? " current-play" : "");
+        const cells = frameCells(frame);
+        el.innerHTML = `
+          <div class="frame-num">${frame.frame}</div>
+          <div class="balls">${cells
+            .map((c, i) => {
+              const active =
+                (ui.edit && ui.edit.frameNumber === frame.frame && ui.edit.ballNumber === i + 1) ||
+                (ui.mode === "play" &&
+                  !ui.edit &&
+                  ui.game &&
+                  ui.game.frameNumber === frame.frame &&
+                  ui.game.ballNumber === i + 1);
+              return `<div class="ball ${c !== "" ? "hit" : ""} ${active ? "active-delivery" : ""}">${c}</div>`;
+            })
+            .join("")}</div>
+          <div class="total ${frame.pending || frame.total == null ? "pending" : ""}">${
+            frame.total != null ? frame.total : frame.pending ? "…" : ""
+          }</div>
+        `;
+        el.addEventListener("click", (ev) => {
+          const ballEl = ev.target.closest(".ball");
+          let ballNum = null;
+          if (ballEl) {
+            ballNum = [...ballEl.parentElement.children].indexOf(ballEl) + 1;
+          }
+          openFrame(frame.frame, ballNum);
+        });
+        sc.appendChild(el);
+      });
+      root.appendChild(sc);
+    }
+
+    function renderMarkCorners(wrap) {
+      const xBtn = document.createElement("button");
+      xBtn.type = "button";
+      xBtn.className = "mark-corner x";
+      xBtn.textContent = "X";
+      xBtn.disabled = !canStrike();
+      xBtn.setAttribute("aria-label", canStrike() ? "X — save strike immediately" : "X unavailable");
+      xBtn.addEventListener("click", immediateStrike);
+
+      const gBtn = document.createElement("button");
+      gBtn.type = "button";
+      gBtn.className = "mark-corner gutter";
+      gBtn.textContent = "G";
+      gBtn.disabled = !canGutter();
+      gBtn.title = "Gutter — save zero immediately";
+      gBtn.setAttribute(
+        "aria-label",
+        canGutter() ? "Gutter — save zero pinfall immediately" : "Gutter unavailable",
+      );
+      gBtn.addEventListener("click", immediateGutter);
+
+      const checkBtn = document.createElement("button");
+      checkBtn.type = "button";
+      checkBtn.className = "mark-corner check";
+      checkBtn.id = "btnCheck";
+      checkBtn.textContent = "✓";
+      checkBtn.disabled = !ui.standingTouched;
+      checkBtn.title = "Confirm standing-pin selection";
+      checkBtn.setAttribute(
+        "aria-label",
+        ui.standingTouched
+          ? "Check mark — save standing-pin selection"
+          : "Check mark unavailable until pins are selected",
+      );
+      checkBtn.addEventListener("click", saveCapture);
+
+      const slashBtn = document.createElement("button");
+      slashBtn.type = "button";
+      slashBtn.className = "mark-corner slash";
+      slashBtn.textContent = "/";
+      slashBtn.disabled = !canSpare();
+      slashBtn.setAttribute("aria-label", canSpare() ? "Slash — save spare immediately" : "Slash unavailable");
+      slashBtn.addEventListener("click", immediateSpare);
+
+      wrap.appendChild(xBtn);
+      wrap.appendChild(gBtn);
+      wrap.appendChild(checkBtn);
+      wrap.appendChild(slashBtn);
+    }
+
+    function renderRack(root) {
+      const avail = new Set(availablePins());
+      const standing = new Set(ui.standingTouched ? ui.draftStanding || [] : []);
+      const wrap = document.createElement("div");
+      wrap.className = "rack-wrap";
+      wrap.setAttribute("aria-label", "Pin rack with X, Gutter, check mark, and slash");
+
+      const rack = document.createElement("div");
+      rack.className = "rack";
+      RACK_ORDER.forEach((row) => {
+        const rowEl = document.createElement("div");
+        rowEl.className = "rack-row";
+        row.forEach((pin) => {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "pin";
+          btn.textContent = String(pin);
+          if (!avail.has(pin)) {
+            btn.classList.add("unavailable");
+            btn.disabled = true;
+            btn.setAttribute("aria-label", `Pin ${pin} not in the remaining rack`);
+          } else {
+            if (standing.has(pin)) btn.classList.add("standing");
+            btn.setAttribute("aria-pressed", standing.has(pin) ? "true" : "false");
+            btn.setAttribute(
+              "aria-label",
+              standing.has(pin)
+                ? `Pin ${pin} selected as standing. Activate to clear.`
+                : `Pin ${pin} not selected. Activate to mark standing.`,
+            );
+            btn.addEventListener("click", () => toggleStanding(pin));
+          }
+          rowEl.appendChild(btn);
+        });
+        rack.appendChild(rowEl);
+      });
+      wrap.appendChild(rack);
+      renderMarkCorners(wrap);
+      root.appendChild(wrap);
+    }
+
+    function render() {
+      renderSide();
+      const app = document.getElementById("app");
+      app.innerHTML = "";
+
+      const chip = document.createElement("div");
+      chip.className = "proposal-chip";
+      chip.textContent = "Proposed · rack-first (not approved)";
+      app.appendChild(chip);
+
+      const title = document.createElement("h1");
+      title.className = "app-title";
+      title.textContent = "Bowling";
+      app.appendChild(title);
+
+      if (ui.mode === "home") {
+        renderHome(app);
+        const start = document.getElementById("btnStartNew");
+        if (start) start.addEventListener("click", startNewGame);
+        return;
+      }
+
+      if (ui.edit) {
+        const ban = document.createElement("div");
+        ban.className = "editing-banner";
+        ban.textContent = `Editing Frame ${ui.edit.frameNumber} · Ball ${ui.edit.ballNumber}`;
+        if (ui.edit.existing && Array.isArray(ui.edit.existing.standing)) {
+          ban.textContent += ` · standing ${
+            ui.edit.existing.standing.length ? ui.edit.existing.standing.join(", ") : "none"
+          }`;
+        }
+        app.appendChild(ban);
+      } else {
+        const ctx = document.createElement("p");
+        ctx.className = "context";
+        ctx.textContent = ui.game ? ui.game.label : "";
+        app.appendChild(ctx);
+      }
+
+      const lead = document.createElement("p");
+      lead.className = "lead";
+      lead.textContent = "Fictional data only. Enter deliveries in order.";
+      app.appendChild(lead);
+
+      renderScorecard(app);
+
+      const panel = document.createElement("section");
+      panel.className = "panel";
+
+      if (ui.mode === "review" && !ui.edit) {
+        const p = document.createElement("p");
+        p.className = "prompt";
+        p.textContent = "Game finished. Tap an entered frame to correct.";
+        panel.appendChild(p);
+        if (isValidCompletedGame(ui.game.frames)) {
+          const actions = document.createElement("div");
+          actions.className = "actions";
+          actions.innerHTML = `
+            <button type="button" class="primary" id="btnStartNew">Start New Game</button>
+            <button type="button" class="secondary" id="btnDoneDay">Done for the Day</button>
+          `;
+          panel.appendChild(actions);
+        } else if (gameHasRepairNeeded(ui.game.frames)) {
+          const box = document.createElement("div");
+          box.className = "warn-box";
+          box.textContent =
+            "Some later balls may need repair after a correction. Fix those before finishing.";
+          panel.appendChild(box);
+        }
+      } else {
+        const prompt = document.createElement("p");
+        prompt.className = "prompt";
+        prompt.textContent = "Tap the pins still standing.";
+        panel.appendChild(prompt);
+
+        const meaning = document.createElement("p");
+        meaning.className = "meaning";
+        meaning.textContent =
+          "Selected = standing. X, G, and / save immediately. Pin taps confirm with ✓.";
+        panel.appendChild(meaning);
+
+        const legend = document.createElement("div");
+        legend.className = "legend";
+        legend.innerHTML =
+          '<span class="lg-stand">Standing</span><span class="lg-up">Available</span><span class="lg-out">Not in rack</span>';
+        panel.appendChild(legend);
+
+        renderRack(panel);
+
+        const preview = previewFromStanding();
+        const prevEl = document.createElement("div");
+        prevEl.className = "preview";
+        if (!ui.standingTouched) {
+          prevEl.innerHTML =
+            "<strong>Not saved yet.</strong> Untouched is not a gutter — use <strong>G</strong> to save zero, or <strong>X</strong> for a strike. Select pins, then <strong>✓</strong>.";
+        } else {
+          const standing = draftStandingSet();
+          prevEl.innerHTML = `Preview (not saved): pinfall <strong>${preview.pinfall}</strong> · standing <strong>${
+            standing.length ? standing.join(", ") : "none"
+          }</strong> — tap <strong>✓</strong> to save.`;
+        }
+        panel.appendChild(prevEl);
+
+        const actions = document.createElement("div");
+        actions.className = "actions";
+        actions.innerHTML = `
+          ${ui.edit ? '<button type="button" class="secondary" id="btnCancel">Cancel</button>' : ""}
+          ${
+            !ui.edit
+              ? '<button type="button" class="ghost" id="btnHome">Home</button>'
+              : ""
+          }
+        `;
+        panel.appendChild(actions);
+      }
+
+      const status = document.createElement("div");
+      status.className =
+        "status" + (ui.notice && ui.notice.includes("Nothing saved") ? " warn" : "");
+      status.textContent = ui.notice || "";
+      panel.appendChild(status);
+      app.appendChild(panel);
+
+      const cancelBtn = document.getElementById("btnCancel");
+      if (cancelBtn) cancelBtn.addEventListener("click", cancelEdit);
+      const startNew = document.getElementById("btnStartNew");
+      if (startNew) startNew.addEventListener("click", startNewGame);
+      const doneDay = document.getElementById("btnDoneDay");
+      if (doneDay) doneDay.addEventListener("click", doneForTheDay);
+      const homeBtn = document.getElementById("btnHome");
+      if (homeBtn) homeBtn.addEventListener("click", () => {
+        showHome();
+        ui.notice = "Returned to home. Active game kept in history.";
+        render();
+      });
+    }
+
+    // Boot: home screen (or ?scenario=)
+    const q = new URLSearchParams(location.search).get("scenario");
+    if (q && DEMOS.some((d) => d.id === q)) loadDemo(q);
+    else {
+      showHome();
+      ui.notice = "Home — open a game or Start New Game.";
+      render();
+    }
+  </script>
+</body>
+</html>

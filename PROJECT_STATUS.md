@@ -9,21 +9,46 @@ CANONICAL_REPOSITORY=Drago1068/Bowling
 CANONICAL_LOCAL_PATH=C:\Users\Drago\Documents\Bowling
 REMOTE_ORIGIN=https://github.com/Drago1068/Bowling.git
 DEFAULT_BRANCH=arch/001-domain-sync-foundation
-CURRENT_BRANCH=codex/first-use-scoring-presentation
+CURRENT_BRANCH=codex/b1-pin-detail-capture
 REVIEWED_SOURCE_HEAD=4077c2bf10d883f64559e314f2a5d05fb1769b0f
 REVIEWED_SOURCE_TREE=38095255d1d596f5a39f71768d77660c0ad4fa1d
 REMEDIATION_HEAD=c04d46930b9644a05505615170892754830a0572
 REMEDIATION_TREE=69f005eff08c8991bbc539e4c27c1a8c84b803b9
 SLICE_4_NATIVE_ACCEPTANCE=d55743ea0bbcfae28755cd2d19bc6d44eecf39de
-CURRENT_HEAD=94cfc4b8ef54cc7501b9dd143d948566fd861fa2
+CURRENT_HEAD=624f1ccd0c9c3f5b444470c5aace04310dfbc1cc
+CURRENT_TREE=38a99b05dd589cdb5823311a8d78403d5e3e779c
+SLICE_6_TAG_COMMIT=94cfc4b8ef54cc7501b9dd143d948566fd861fa2
 CURRENT_ARCHITECTURE=ARCH-001
 CURRENT_SLICE=ARCH-001_SLICE_6_SCORING_FIRST_DEVICE_SHELL
 ARCH_001_SLICE_4=FORMALLY_CLOSED
 ARCH_001_SLICE_4_IMPLEMENTATION_ACCEPTED=true
 ARCH_001_SLICE_4_DEVICE_ACCEPTANCE=PASS
 CURRENT_ACCEPTED_CAPABILITY=DETERMINISTIC_OFFLINE_SINGLE_BOWLER_TEN_PIN_SCORING_WITH_HISTORY_RESUME_AND_SCORING_FIRST_SHELL
-CURRENT_GATE=FIRST_USE_LOCAL_PACKAGE_ACCEPTED_INTEGRATION_PENDING
-GATE_STATUS=FIRST_USE_LOCAL_PACKAGE_ACCEPTED_INTEGRATION_PENDING
+CURRENT_GATE=B1_FORMALLY_ACCEPTED_LOCAL_COMMIT
+GATE_STATUS=B1_FORMAL_ACCEPTANCE_PASS
+B1_IMPLEMENTATION_AUTHORIZED=true
+B1_IMPLEMENTATION_EVIDENCE=docs/evidence/arch-001-b1-pin-detail-capture.md
+B1_DEVICE_ACCEPTANCE=PASS
+B1_FIX_EXIT_ACCESSIBILITY=PASS
+B1_APK_SHA256=9141fb073c8a5a0a1c6a2659cc29c0cd57136a1e5685a091ac5e99f42ecbdba4
+B1_PRIOR_DEVICE_APK_SHA256=b7f81c910d889b2f8d4abfa7ca18664616be7109473a6d70a9a052fd10328b4c
+B1_FORMAL_ACCEPTANCE=true
+B1_FINAL_REVIEW_VERDICT=PASS
+B1_REAL_LANE_TRIAL=HOLD
+B1_REAL_LANE_TRIAL_BLOCKER=USER_TRIAL_OUTCOME_NOT_PROVIDED
+B1_SEQUENTIAL_ENTRY_REMEDIATION=PASS_FOCUSED_TESTS
+B1_UPDATED_APK_DEVICE_VERIFICATION=PASS
+USER_PIN_SELECTOR_ACCEPTANCE=ACCEPTED_DEVICE_VERIFIED
+USER_PIN_SELECTOR_HOLD_REASON=
+PROPOSED_CAPTURE_DEFAULT=RACK_FIRST_SELECTED_MEANS_STANDING
+PROPOSED_CAPTURE_DEFAULT_STATUS=ACCEPTED_IMPLEMENTED
+USER_DESIGN_ACCEPTANCE=ACCEPTED
+GRAPHICAL_ENTRY_REFINEMENTS=TENTH_X_NOTATION,CONTEXT_AWARE_SPARE,AUTO_ADVANCE_AFTER_SAVE,HOME_METRICS,DATE_HEADER_AVERAGE,GUTTER_BALL2_SPARE,FIX_DEFAULT_FIRST_THROW
+GRAPHICAL_ENTRY_PROTOTYPE=prototypes/graphical-entry/index.html
+FIELD_VALIDATION=PAUSED
+COMMITS_CREATED=true
+PUSH_PERFORMED=false
+TAG_PUBLISHED=false
 SLICE_4_SPEC=docs/adr/ADR-003-deterministic-offline-game-scoring.md
 SLICE_4_EVIDENCE=docs/evidence/arch-001-slice-4-formal-closure.md
 SLICE_4_BASELINE_COMMIT=9a789b8ccd9b7067e84e161d8bcd8b1fd954dca4
@@ -66,17 +91,41 @@ FIRST_USE_ACCEPTANCE=ACCEPTED_LOCAL_CANDIDATE_LAYOUT_FOLLOW_ON_TECHNICALLY_VERIF
 LOCAL_FIRST_USE_PACKAGE_ACCEPTED=true
 HISTORY_PLACEMENT_TECHNICALLY_VERIFIED=true
 USER_TESTED_FINAL_PLACEMENT=false
-FIRST_USE_INTEGRATION_PENDING=true
+FIRST_USE_INTEGRATION_PENDING=false
+FIRST_USE_INTEGRATED_ON_DEFAULT_BRANCH=true
 PRODUCTION_RELEASE_AUTHORIZED=false
 TENTH_FRAME_DEFECT=CLOSED
 INVALID_REPAIR_UI=PASS
 P2_CONNECTION_CACHE=CLOSED
 P2_RECOVERY_COVERAGE=CLOSED
-SQLITE_DIAGNOSTIC_DISPOSITION=RESOLVED_FOR_LOCAL_ACCEPTANCE
+SQLITE_DIAGNOSTIC_DISPOSITION=RETAIN_ON_SHARED_INTEGRATION_NOT_PRODUCTION
 PRODUCTION_DIAGNOSTIC_APPROVAL=false
 ORIGINAL_NATIVE_CAUSE=UNCONFIRMED
-DIRECT_FRAME_CORRECTION_SELECTION=DEFERRED_PRODUCT_REQUEST_NOT_CURRENT_GATE
-PIN_DETAIL_AND_ANALYSIS=RECORDED_FUTURE_REQUIREMENT_NOT_CURRENT_GATE
+DIRECT_FRAME_CORRECTION_SELECTION=INCLUDED_IN_B1_IMPLEMENTATION_CANDIDATE
+PIN_DETAIL_AND_ANALYSIS=B1_IMPLEMENTED_READY_FOR_ACCEPTANCE_REVIEW
+PIN_DETAIL_ANALYSIS_SPEC=docs/adr/ADR-007-pin-detail-and-analysis-requirements.md
+PIN_DETAIL_ANALYSIS_REQUIREMENTS_STATUS=ACCEPTED
+PIN_DETAIL_U1=ACCEPTED_PINFALL_PER_DELIVERY_APP_CALCULATES_TOTALS
+PIN_DETAIL_U2=ACCEPTED_PINFALL_THEN_OPTIONAL_STANDING_EXPLICIT_SAVE
+PIN_DETAIL_U3=ACCEPTED_FIRST_BALL_LEAVES_SPARES_TRENDS_DEFERRED
+ANALYSIS_DEFINITIONS_RECORDED=true
+UNKNOWN_PIN_IDENTITY_RULES_RECORDED=true
+CORRECTION_INTEGRITY_RECORDED=true
+B1_BOUNDARY_DEFINED=true
+B1_SCOPE=CAPTURE_AND_DIRECT_FRAME_BALL_FIX_ONLY
+ANALYSIS_IMPLEMENTATION_IN_B1=false
+PINLEAVE_WRITES_IN_B1=false
+B1_IMPLEMENTATION_AUTHORIZED=true
+B1_TECHNICAL_CONTRACT=ACCEPTED
+B1_TECHNICAL_CONTRACT_SPEC=docs/adr/ADR-008-b1-pinstate-persistence-sync-contract.md
+ADR_008_ACCEPTED=true
+EXISTING_PINSTATE_SUPPORT=ACTIVATED_GENERIC_STORE_PLUS_INDEX
+SCHEMA_CHANGES_REQUIRED=PARTIAL_UNIQUE_INDEX_APPLIED_IN_CODE
+SYNC_CONTRACT_CHANGES_REQUIRED=SERVER_PINSTATE_VALIDATION_AND_PULL_ASSOC
+ENTITY_OR_PROTOCOL_CHANGES_REQUIRED=PINSTATE_BASIS_ROLL_VERSION
+SCHEMA_OR_SYNC_DECISIONS_OUTSTANDING=NONE_ADR_008_ACCEPTED
+TENTH_RACK_RULES_VERIFIED=true
+EXAMPLE_10_9_1=BALL3_ON_REMAINING_PINS_NOT_FRESH_RACK
 SLICE_6_PRIMARY_SURFACE=ACTIVE_GAME_AND_SCORING
 SLICE_6_DIAGNOSTIC_HARNESS=COLLAPSED_BY_DEFAULT_NOT_REMOVED
 SLICE_6_HISTORY_PRESENTATION=OPEN_ON_DEMAND
@@ -109,7 +158,7 @@ LIFECYCLE_PERSISTED=false
 GOLDEN_VECTORS_PINNED=true
 LAST_ACCEPTED_RELEASE=NOT_VERIFIED
 LAST_ACCEPTED_APPLICATION_COMMIT=d55743ea0bbcfae28755cd2d19bc6d44eecf39de
-LAST_ACCEPTED_COMMIT=94cfc4b8ef54cc7501b9dd143d948566fd861fa2
+LAST_ACCEPTED_COMMIT=624f1ccd0c9c3f5b444470c5aace04310dfbc1cc
 TEST_STATUS=EXECUTABLE_GATES_PASS
 SYNC_STATUS=CONFLICT_AND_ACCEPTED_LOCAL_WRITES_ATOMIC
 MOBILE_STATUS=AUTHORITATIVE_TYPECHECK_PASS
@@ -117,10 +166,10 @@ DEPLOYMENT_STATUS=NOT_AUTHORIZED_NOT_PERFORMED
 OPEN_P0=0_OBSERVED_AFTER_LIFECYCLE_FIX_NATIVE_CAUSE_UNCONFIRMED
 OPEN_P1=0
 OPEN_P2=0
-CURRENT_BLOCKERS=FIRST_USE_INTEGRATION_PENDING
-NEXT_ACTION=READ_ONLY_BASELINE_INTEGRATION_REVIEW
+CURRENT_BLOCKERS=USER_DESIGN_REVIEW_OF_GRAPHICAL_ENTRY_PROTOTYPE
+NEXT_ACTION=USER_JUDGE_SELECTED_EQUALS_STANDING_AND_FRAME_TAP_CORRECTION
 NEXT_AGENT=ChatGPT_ARCHITECTURE_AND_RELEASE_AUTHORITY
-LAST_UPDATED=2026-09-13_America/New_York
+LAST_UPDATED=2026-09-21_America/New_York
 SLICE_5_GAME_LABEL=LOCAL_CREATION_DATE_AND_TIME
 SLICE_5_RESTART_DEFAULT=NEWEST_GAME
 SLICE_5_DIAGNOSTIC_HARNESS=RETAIN_EXISTING_CONTROLS
@@ -902,3 +951,109 @@ rewritten here as if it had already occurred in the local-baseline package.
   remain listed. `USER_TESTED_UPDATED_PLACEMENT=false`.
 - **Result**: `READY_FOR_LOCAL_BASELINE_REVIEW`. Production unauthorized.
   `FIELD_VALIDATION=PAUSED`. No commit.
+
+### ADR-007 requirements acceptance (this package; documentation only)
+
+- **Work package**: `BOWLING_ADR_007_REQUIREMENTS_ACCEPTANCE`.
+- **Baseline verified**: `624f1ccd…` / tree `38a99b05…` on
+  `arch/001-domain-sync-foundation`; origin `Drago1068/Bowling`. Slice 6
+  tag remains `v0.6.0-arch001-slice6` → `94cfc4b8…` (distinct). Expected
+  dirty set only: `PROJECT_STATUS.md` + `docs/adr/ADR-007-…`.
+- **Document**: `docs/adr/ADR-007-pin-detail-and-analysis-requirements.md`
+  (**ACCEPTED**; implementation unauthorized).
+- **Accepted**: U1–U3; incomplete/repair exclude from rates + list with
+  counts; common leaves = frame-opening 1–10, nonempty recorded only;
+  first-ball metrics denominators explicit; spares 1–9; unknown vs empty
+  identity rules; correction integrity; B1 = capture + direct Fix only;
+  `PinLeave` writes false; analysis not in B1; trends deferred.
+- **Outstanding for B1 auth**: resolved into proposed technical contract
+  ADR-008 (awaiting AA approval); generic `canonical_entities` already
+  stores any entity type — gap is write path, multi-entity TX, and
+  proposed server PinState validation.
+- **Result**: `PASS`. `IMPLEMENTATION_AUTHORIZED=false`.
+  `FIELD_VALIDATION=PAUSED`. No application code, tests, migrations,
+  commits, or tags.
+
+### ADR-008 technical acceptance (this package; documentation only)
+
+- **Work package**: `BOWLING_ADR_008_TECHNICAL_ACCEPTANCE`.
+- **Baseline verified**: `624f1ccd…` / tree `38a99b05…`; dirty docs only.
+- **Document**: `docs/adr/ADR-008-b1-pinstate-persistence-sync-contract.md`
+  (**ACCEPTED**; implementation unauthorized).
+- **Safeguards recorded**: fail-closed pre-index duplicate scan; identical
+  active/roll_id semantics; legacy without basis never EFFECTIVE; basis
+  necessary not sufficient (+ rack rules); PG savepoint then conflict with
+  incoming payload; CREATE-before-DELETE = terminal CONFLICT + fresh
+  submission after archive; pull association collision keeps local, stores
+  remote in conflict record, advances checkpoint.
+- **Result**: `PASS`. `ADR_008_ACCEPTED=true`.
+  `B1_TECHNICAL_CONTRACT=ACCEPTED`. `IMPLEMENTATION_AUTHORIZED=false`.
+  `UNRESOLVED_DECISIONS=none`.
+
+### B1 pin detail capture implementation (prior package)
+
+- **Work package**: `BOWLING_B1_PIN_DETAIL_CAPTURE_IMPLEMENTATION`.
+- **Branch**: `codex/b1-pin-detail-capture` from baseline `624f1ccd…`.
+- **Evidence**: `docs/evidence/arch-001-b1-pin-detail-capture.md`.
+- **Automated**: root **188/188**, server **41/41** on
+  `bowling-pg-test-tmp` `:15433` (stopped, volume preserved), both typechecks
+  PASS.
+- **Device (then)**: HOLD under mistaken android-absent reading.
+
+### B1 Android build recovery and device acceptance (prior package)
+
+- **Work package**: `BOWLING_B1_BUILD_RECOVERY_DEVICE_ACCEPTANCE`.
+- **Android tree**: present, Expo-generated, gitignored (`/android`); not missing
+  (earlier HOLD was a tooling false negative).
+- **APK SHA-256 (then)**: `2a676cf6847bb34bbc29a8eae256fb37cb9f507a76ee3b604b6042f29cd21109`.
+- **Device**: **PASS** with noted Fix Cancel below-fold workaround (cold restart once).
+
+### B1 Fix-mode exit accessibility (this package)
+
+- **Work package**: `BOWLING_B1_FIX_EXIT_ACCESSIBILITY`.
+- **Change**: presentation-only Fix layout — Cancel above capped chooser; while
+  editing, chooser/scorecard hidden, Cancel with editor, explicit Save standing.
+- **APK SHA-256**: `43aaf3b1b59301cdfd43778e845a12a716435f6bbd364ce5e704df2b22104526`.
+- **Tests**: FIX_EXIT presentation tests PASS; both typechecks PASS.
+- **Device**: long-game Save/Cancel without force-stop **PASS**;
+  `RESTART_WORKAROUND_REQUIRED=false`. Existing `9/13/2026` games preserved.
+- **Result**: `READY_FOR_USER_WALKTHROUGH`. `B1_FORMAL_ACCEPTANCE=false`.
+  `USER_PIN_SELECTOR_ACCEPTANCE` later set to **HOLD** (confusing entry).
+  No commits/pushes/tags. B2 not started.
+
+### Graphical entry redesign prototype
+
+- **Work package**: `BOWLING_GRAPHICAL_ENTRY_PROTOTYPE` (initial).
+- **User**: rejected current B1 entry as confusing →
+  `USER_PIN_SELECTOR_ACCEPTANCE=HOLD` /
+  `REASON=USER_REPORTS_CONFUSING_ENTRY`.
+- **Proposal (pending)**: rack-first; selected = standing; scorecard X/; frame-tap
+  correction; explicit Save; unknown prior rack → no invented identities.
+- **Does not** rewrite accepted ADR-007 U2 as approved.
+
+### Graphical entry prototype refinement (this package)
+
+- **Work package**: `BOWLING_GRAPHICAL_ENTRY_PROTOTYPE_REFINEMENT`.
+- **Feedback**: selected=standing YES; rack-first YES with changes; frame-tap YES.
+  `USER_DESIGN_ACCEPTANCE=CHANGES_REQUESTED` then refined → re-review **PENDING**.
+- **Refinements in prototype**:
+  1. Tenth-frame strikes display **X** (`X X X`, `X 9 /`, `9 / X`).
+  2. Context-aware **Spare** after non-strike first ball (incl. miss) and tenth `X 9`.
+  3. **Save** auto-advances; remaining rack carried forward; explicit Save preserved.
+- **Prototype**: `prototypes/graphical-entry/index.html` (isolated; fictional only).
+- **Production app / APK**: unchanged
+  (`43aaf3b1b59301cdfd43778e845a12a716435f6bbd364ce5e704df2b22104526`).
+- **Result**: `READY_FOR_USER_REVIEW`. Capture-default approval still pending.
+
+#### Exact next prompt (do not execute)
+
+```text
+# BOWLING — GRAPHICAL ENTRY REFINEMENT FEEDBACK
+Open prototypes/graphical-entry/index.html.
+Check only whether these three refinements behave as expected:
+1) Tenth strikes show X (e.g. X X X, X 9 /, 9 / X) — not numeric 10.
+2) Spare is offered after a non-strike first ball (including miss) and for tenth X 9.
+3) Save advances to the next legal delivery with the remaining rack carried forward.
+Accept, request more changes, or reject. Do not implement production changes.
+STOP.
+```

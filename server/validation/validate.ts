@@ -61,6 +61,34 @@ function validateBowlingFacts(entity_type: string, payload: PlainObj): string | 
       }
     }
   }
+  if (entity_type === "PinState") {
+    if (typeof payload.roll_id !== "string" || payload.roll_id.length === 0) {
+      return "PinState.roll_id must be a non-empty string";
+    }
+    if (
+      typeof payload.basis_roll_version !== "number" ||
+      !Number.isInteger(payload.basis_roll_version) ||
+      payload.basis_roll_version < 1
+    ) {
+      return "PinState.basis_roll_version must be a positive integer";
+    }
+    if (payload.standing_pins === null || payload.standing_pins === undefined) {
+      return "PinState.standing_pins must be an array (null forbidden)";
+    }
+    if (!Array.isArray(payload.standing_pins)) {
+      return "PinState.standing_pins must be an array";
+    }
+    const seen = new Set<number>();
+    for (const pin of payload.standing_pins) {
+      if (typeof pin !== "number" || !Number.isInteger(pin) || pin < 1 || pin > 10) {
+        return "PinState.standing_pins must be distinct integers 1..10";
+      }
+      if (seen.has(pin)) {
+        return "PinState.standing_pins must be distinct";
+      }
+      seen.add(pin);
+    }
+  }
   return null;
 }
 

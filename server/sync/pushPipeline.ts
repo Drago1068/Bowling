@@ -130,13 +130,41 @@ function applyCreate(tx: Tx, req: ValidatedPushRequest, now: Date, incomingHash:
       entity_version: 1, data_quality: String(payload.data_quality),
       created_at: payload.created_at as string, updated_at: nowIso, deleted: false,
     };
-    await entityRepo.insert(tx, {
-      entity_type: req.entity_type, entity_id: req.entity_id,
-      schema_version: Number(payload.schema_version), entity_version: 1,
-      origin_device_id: req.device_id, data_quality: String(payload.data_quality),
-      created_at: new Date(payload.created_at as string), updated_at: now,
-      archived: false, payload: fullPayload, payload_hash: hashPayload(fullPayload),
-    });
+
+    if (req.entity_type === "PinState") {
+      await tx.query("SAVEPOINT pinstate_assoc");
+      try {
+        await entityRepo.insert(tx, {
+          entity_type: req.entity_type, entity_id: req.entity_id,
+          schema_version: Number(payload.schema_version), entity_version: 1,
+          origin_device_id: req.device_id, data_quality: String(payload.data_quality),
+          created_at: new Date(payload.created_at as string), updated_at: now,
+          archived: false, payload: fullPayload, payload_hash: hashPayload(fullPayload),
+        });
+        await tx.query("RELEASE SAVEPOINT pinstate_assoc");
+      } catch (err) {
+        await tx.query("ROLLBACK TO SAVEPOINT pinstate_assoc");
+        if (isAssocUniqueViolation(err)) {
+          const peer = await findActivePinStateByRollId(tx, String(payload.roll_id ?? ""));
+          if (peer) {
+            return recordConflict(
+              tx, req, peer, now, incomingHash, log,
+              "active PinState already exists for roll_id",
+            );
+          }
+        }
+        throw err;
+      }
+    } else {
+      await entityRepo.insert(tx, {
+        entity_type: req.entity_type, entity_id: req.entity_id,
+        schema_version: Number(payload.schema_version), entity_version: 1,
+        origin_device_id: req.device_id, data_quality: String(payload.data_quality),
+        created_at: new Date(payload.created_at as string), updated_at: now,
+        archived: false, payload: fullPayload, payload_hash: hashPayload(fullPayload),
+      });
+    }
+
     await auditRepo.insert(tx, {
       audit_id: uuidv7(), happened_at: now, actor: req.device_id, action: "push",
       entity_type: req.entity_type, entity_id: req.entity_id, submission_id: req.submission_id,
@@ -146,6 +174,42 @@ function applyCreate(tx: Tx, req: ValidatedPushRequest, now: Date, incomingHash:
     log.info("accepted", { submission_id: req.submission_id, device_id: req.device_id, entity_type: req.entity_type, entity_id: req.entity_id, entity_version: 1 });
     return result;
   })();
+}
+
+function isAssocUniqueViolation(err: unknown): boolean {
+  const e = err as { code?: string; message?: string; constraint?: string };
+  if (e.code === "23505") return true;
+  const msg = String(e.message ?? err);
+  return msg.includes("ux_pinstate_active_roll") || msg.includes("UNIQUE");
+}
+
+async function findActivePinStateByRollId(
+  tx: Tx,
+  rollId: string,
+): Promise<CanonicalEntityRow | null> {
+  if (!rollId) return null;
+  const { rows } = await tx.query(
+    `SELECT * FROM canonical_entities
+     WHERE entity_type = 'PinState' AND archived = FALSE
+       AND payload->>'roll_id' = $1
+     LIMIT 1`,
+    [rollId],
+  );
+  if (rows.length === 0) return null;
+  const r = rows[0] as Record<string, unknown>;
+  return {
+    entity_type: String(r.entity_type),
+    entity_id: String(r.entity_id),
+    schema_version: Number(r.schema_version),
+    entity_version: Number(r.entity_version),
+    origin_device_id: String(r.origin_device_id),
+    data_quality: String(r.data_quality),
+    created_at: r.created_at as Date,
+    updated_at: r.updated_at as Date,
+    archived: Boolean(r.archived),
+    payload: r.payload as Record<string, unknown>,
+    payload_hash: String(r.payload_hash),
+  };
 }
 
 function applyUpdate(tx: Tx, req: ValidatedPushRequest, now: Date, incomingHash: string, log: Logger): Promise<PushResult> {

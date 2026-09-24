@@ -1,0 +1,50 @@
+﻿20:35:59 BEGIN fix-exit long-game device check (no force-stop)
+20:36:07 launch: Bowling | This game Â· 9/21/2026, 8:32:23â€¯PM | Choose the ball to change. | 1 | 5 | 4 | 9 | 2 | 18 | 3 | 27 | 36 | 45 | 6 | 54 | 7 | 63 | 8 | 72 | 81 | 10 | Â· | Cancel | Frame 1, 1st ball = 5 Â· detail not recorded | Frame 1, 2nd ball = 4 Â· detail not recorded | Frame 2, 1st ball = 5 Â· detail not recorded | Frame 2, 2nd ball = 4 Â· detail not recorded | Frame 3, 1st ball = 5 Â· detail not recorded | Frame 3, 2nd ball = 4 Â· detail not recorded | Frame 4, 1st ball = 5 Â· detail not recorded | Frame 4, 2nd ball = 4 Â· detail not recorded | Previous games | Start a new game | Advanced
+20:36:12 TAP 'Start a new game'
+20:36:16 new game: Bowling | This game Â· 9/21/2026, 8:36:12â€¯PM | After each throw, tap how many pins fell. | Frame 1 Â· 1st ball | How many pins did you knock down on this ball? | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | Â· | Previous games | Start a new game | Advanced
+20:36:19 TAP_PIN 5
+20:36:25 TAP 'Save'
+20:36:28 TAP_PIN 4
+20:36:32 TAP 'Save'
+20:36:36 TAP_PIN 5
+20:36:42 TAP 'Save'
+20:36:46 TAP_PIN 4
+20:36:49 TAP 'Save'
+20:36:53 TAP_PIN 5
+20:36:59 TAP 'Save'
+20:37:03 TAP_PIN 4
+20:37:07 TAP 'Save'
+20:37:12 TAP_PIN 5
+20:37:19 TAP 'Save'
+20:37:23 TAP_PIN 4
+20:37:27 TAP 'Save'
+20:37:35 TAP_PIN 5
+20:37:41 TAP 'Save'
+20:37:45 TAP_PIN 4
+20:37:48 TAP 'Save'
+20:37:53 TAP_PIN 5
+20:37:59 TAP 'Save'
+20:38:03 TAP_PIN 4
+20:38:07 TAP 'Save'
+20:38:12 TAP_PIN 5
+20:38:18 TAP 'Save'
+20:38:21 TAP_PIN 4
+20:38:25 TAP 'Save'
+20:38:29 TAP_PIN 5
+20:38:35 TAP 'Save'
+20:38:39 TAP_PIN 4
+20:38:43 TAP 'Save'
+20:38:47 TAP_PIN 5
+20:38:54 TAP 'Save'
+20:38:58 TAP_PIN 4
+20:39:01 TAP 'Save'
+20:39:05 after 9 frames: Bowling | This game Â· 9/21/2026, 8:36:12â€¯PM | Saved: Frame 9, 1st ball = 4. Pin detail not recorded for this ball. | Frame 9 Â· 2nd ball | How many pins did you knock down on this ball? | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 18 | 27 | 36 | 45 | 54 | 63 | 72 | Â· | â€¦ | Fix a ball | Previous games | Start a new game | Advanced
+20:39:07 SAW 'Fix a ball'
+20:39:10 TAP 'Fix a ball'
+20:39:14 chooser: Bowling | This game Â· 9/21/2026, 8:36:12â€¯PM | Choose the ball to change. | 1 | 5 | 4 | 9 | 2 | 18 | 3 | 27 | 36 | 45 | 6 | 54 | 7 | 63 | 8 | 72 | Â· | â€¦ | 10 | Cancel | Frame 1, 1st ball = 5 Â· detail not recorded | Frame 1, 2nd ball = 4 Â· detail not recorded | Frame 2, 1st ball = 5 Â· detail not recorded | Frame 2, 2nd ball = 4 Â· detail not recorded | Frame 3, 1st ball = 5 Â· detail not recorded | Frame 3, 2nd ball = 4 Â· detail not recorded | Frame 4, 1st ball = 5 Â· detail not recorded | Frame 4, 2nd ball = 4 Â· detail not recorded | Previous games | Start a new game | Advanced
+20:39:14 Cancel above chooser OK (Cancel.T=1603 Roll.T=1998)
+20:39:15 SHOT 01-chooser-cancel-above
+20:39:15 Selecting 'Frame 1, 1st ball = 5 Â· detail not recorded'
+20:39:19 editor: Bowling | This game Â· 9/21/2026, 8:36:12â€¯PM | Choose the ball to change. | 1 | 5 | 4 | 9 | 2 | 18 | 3 | 27 | 36 | 45 | 6 | 54 | 7 | 63 | 8 | 72 | Â· | â€¦ | 10 | Change Frame 1, 1st ball. It is now 5. What did you actually knock down? | Choose a different ball | 0 | Update which pins are still standing? (optional)
+20:39:19 FAIL_STOP Chooser still visible while editing
+20:39:20 SHOT fail

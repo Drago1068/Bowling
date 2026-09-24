@@ -1,0 +1,18 @@
+﻿20:48:03 launch: Bowling | This game Â· 9/21/2026, 8:36:12â€¯PM | Saved. | Change Frame 1, 1st ball. It is now 5. What did you actually knock down? | Choose a different ball | Cancel | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | Update which pins are still standing? (optional) | Save standing pins | Previous games | Start a new game | Advanced
+20:48:12 chooser Cancel.T=1603 Frame1.T=1998
+20:48:12 SHOT 01-chooser-cancel-above
+20:48:16 editor: Bowling | This game Â· 9/21/2026, 8:36:12â€¯PM | Choose the ball to change. | Change Frame 1, 1st ball. It is now 5. What did you actually knock down? | Choose a different ball | Cancel | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | Update which pins are still standing? (optional) | Save standing pins | Previous games | Start a new game | Advanced
+20:48:16 Cancel.T=915 Save.T=2366 prompt.T=513
+20:48:17 SHOT 02-editor-save-cancel-visible
+20:48:21 SHOT 03-cancel-exited
+20:48:21 Cancel no-restart OK
+20:48:32 stand 6 @ 2156
+20:48:35 stand 7 @ 2156
+20:48:38 stand 8 @ 2156
+20:48:41 stand 9 @ 2156
+20:48:44 stand 10 @ 2156
+20:48:51 after-save: Bowling | This game Â· 9/21/2026, 8:36:12â€¯PM | Saved standing pins: 6, 7, 8, 9, 10. | Change Frame 1, 1st ball. It is now 5. What did you actually knock down? | Choose a different ball | Cancel | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | Update which pins are still standing? (optional) | Save standing pins | Remove pin detail | Previous games | Start a new game
+20:48:51 Save standing notice OK
+20:48:52 SHOT 04-save-then-cancel-reachable
+20:49:04 SHOT 05-existing-preserved
+20:49:04 LONG_GAME_DEVICE_CHECK_PASS RESTART_WORKAROUND_REQUIRED=false

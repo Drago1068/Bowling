@@ -1,4 +1,5 @@
-import type { CanonicalEntity } from "../entities.ts";
+import type { CanonicalEntity, PinState } from "../entities.ts";
+import { uuidv7 } from "../identity/uuidv7.ts";
 import { hashPayload } from "./hashing.ts";
 import type {
   AppliedChangeStore,
@@ -105,6 +106,44 @@ export function applyRemoteChange(entities: CanonicalEntityStore, change: PullCh
   entities.upsert(incoming);
   return true;
 }
+
+/**
+ * ADR-008: if installing this PinState would create a second active association
+ * for the same roll_id, keep local, record remote in conflict, and treat as
+ * handled (caller must mark applied + advance checkpoint).
+ */
+export function handlePinStatePullAssociation(
+  stores: Pick<CoordinatorStores, "entities" | "conflicts">,
+  change: PullChange,
+  nowIso: string,
+): "applied" | "association_conflict" | "skipped" {
+  if (change.entity_type !== "PinState") return "skipped";
+  if (change.payload === undefined || change.payload === null) return "skipped";
+  const incoming = change.payload as PinState;
+  if (incoming.deleted) return "skipped";
+  const rollId = incoming.roll_id;
+  if (typeof rollId !== "string") return "skipped";
+
+  const locals = (stores.entities.list("PinState") as PinState[]).filter(
+    (p) => !p.deleted && p.roll_id === rollId && p.id !== change.entity_id,
+  );
+  if (locals.length === 0) return "skipped";
+
+  const local = locals[0]!;
+  stores.conflicts.record({
+    conflict_id: uuidv7(),
+    submission_id: `pull-assoc:${changeKey(change)}`,
+    entity_type: "PinState",
+    entity_id: change.entity_id,
+    expected_entity_version: incoming.entity_version,
+    canonical_entity_version: local.entity_version,
+    local_payload: incoming,
+    status: "OPEN",
+    created_at: nowIso,
+  });
+  return "association_conflict";
+}
+
 
 export function createSyncCoordinator(options: CoordinatorOptions): SyncCoordinator {
   const {
@@ -229,6 +268,21 @@ export function createSyncCoordinator(options: CoordinatorOptions): SyncCoordina
             continue;
           }
           faults.duringApplyBeforeCommit?.();
+          const nowIso = now().toISOString();
+          const assoc = handlePinStatePullAssociation(stores, change, nowIso);
+          if (assoc === "association_conflict") {
+            stores.applied.record({
+              change_id: key,
+              device_id: change.origin_device_id ?? "",
+              entity_type: change.entity_type,
+              entity_id: change.entity_id,
+              entity_version: change.entity_version,
+              payload_hash: hashPayload(change.payload ?? {}),
+              applied_at: nowIso,
+            });
+            report.applied += 1;
+            continue;
+          }
           const applied = applyRemoteChange(stores.entities, change);
           stores.applied.record({
             change_id: key,
@@ -237,7 +291,7 @@ export function createSyncCoordinator(options: CoordinatorOptions): SyncCoordina
             entity_id: change.entity_id,
             entity_version: change.entity_version,
             payload_hash: hashPayload(change.payload ?? {}),
-            applied_at: now().toISOString(),
+            applied_at: nowIso,
           });
           if (applied) report.applied += 1;
         }

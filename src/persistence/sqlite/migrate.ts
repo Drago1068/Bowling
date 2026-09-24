@@ -108,6 +108,7 @@ export function applyMigrations(
       options.beforeMigration?.(migration.version);
       driver.exec("BEGIN IMMEDIATE");
       try {
+        migration.precheck?.(driver);
         driver.exec(migration.sql);
         insert.run(migration.version, new Date().toISOString());
         driver.exec("COMMIT");

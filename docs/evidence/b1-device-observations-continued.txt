@@ -1,0 +1,43 @@
+﻿18:25:24 CONTINUE: history scroll + tenth frame
+18:25:33 history scroll 0 sample: Bowling | This game Â· 9/21/2026, 6:19:57â€¯PM | This game needs a later ball fixed before the score can be finished. | These are your games. Tap one to open it. Starting a new game does not delete others. | Start a new game | 9/21/2026, 6:19:57â€¯PM | Open | 9/21/2026, 6:15:12â€¯PM
+18:25:37 history scroll 1 sample: 9/21/2026, 5:51:47â€¯PM | Open | 9/21/2026, 5:48:38â€¯PM | 9/13/2026, 7:21:04â€¯PM | 9/13/2026, 7:01:13â€¯PM | 9/13/2026, 7:00:42â€¯PM | 9/13/2026, 9:42:04â€¯AM | 9/13/2026, 9:41:21â€¯AM
+18:25:37 FOUND 9/13/2026
+18:25:38 SHOT 16-history-existing-preserved
+18:25:42 TAP '9/13/2026, 9:41:21â€¯AM, Open'
+18:25:48 opened existing: Bowling | This game Â· 9/13/2026, 9:41:21â€¯AM | Game finished. Final score 236. | 1 | 8 | / | 19 | 2 | 9 | 0 | 28 | 3 | X | Â· | 57 | 4 | 77 | 5 | 96 | 6 | 116 | 7 | 146 | 176 | 206 | 10 | 236 | Start a new game | Fix a ball | Previous games | Advanced
+18:25:49 SHOT 16b-existing-opened
+18:25:49 Existing 9/13 game opened OK
+18:25:52 TAP 'Start a new game'
+18:25:57 TAP_PIN 10
+18:26:03 TAP 'Save'
+18:26:07 TAP_PIN 10
+18:26:14 TAP 'Save'
+18:26:18 TAP_PIN 10
+18:26:26 TAP 'Save'
+18:26:30 TAP_PIN 10
+18:26:37 TAP 'Save'
+18:26:42 TAP_PIN 10
+18:26:49 TAP 'Save'
+18:26:53 TAP_PIN 10
+18:27:00 TAP 'Save'
+18:27:04 TAP_PIN 10
+18:27:10 TAP 'Save'
+18:27:14 TAP_PIN 10
+18:27:20 TAP 'Save'
+18:27:24 TAP_PIN 10
+18:27:31 TAP 'Save'
+18:27:34 tenth: Bowling | This game Â· 9/21/2026, 6:25:52â€¯PM | Saved: Frame 9, 1st ball = 10. Pin detail not recorded for this ball. | Frame 10 Â· 1st ball | How many pins did you knock down on this ball? | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | X | Â· | 30 | 60 | 90 | 120 | 150 | 180 | 210 | â€¦ | Fix a ball | Previous games | Start a new game | Advanced
+18:27:35 SHOT 17-tenth-frame
+18:27:38 TAP_PIN 10
+18:27:42 TAP 'Save'
+18:27:46 b2: Bowling | This game Â· 9/21/2026, 6:25:52â€¯PM | Saved: Frame 10, 1st ball = 10. Pin detail not recorded for this ball. | Frame 10 Â· 2nd ball | How many pins did you knock down on this ball? | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | X | Â· | 30 | 60 | 90 | 120 | 150 | 180 | 210 | 240 | â€¦ | Fix a ball | Previous games | Start a new game | Advanced
+18:27:48 TAP_PIN 9
+18:27:52 TAP 'Save'
+18:27:56 b3: Bowling | This game Â· 9/21/2026, 6:25:52â€¯PM | Saved: Frame 10, 2nd ball = 9. Pin detail not recorded for this ball. | Frame 10 Â· 3rd ball | How many pins did you knock down on this ball? | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | X | Â· | 30 | 60 | 90 | 120 | 150 | 180 | 210 | 240 | 269 | 288 | Fix a ball | Previous games | Start a new game | Advanced
+18:27:57 SHOT 18-tenth-b3-restrictions
+18:27:57 Pin 5 not enabled on tenth ball3 (OK)
+18:27:59 TAP_PIN 1
+18:28:03 TAP 'Save'
+18:28:07 tenth done: Bowling | This game Â· 9/21/2026, 6:25:52â€¯PM | Saved: Frame 10, 3rd ball = 1. Pin detail not recorded for this ball. | Game finished. Final score 289. | 1 | X | Â· | 30 | 2 | 60 | 3 | 90 | 4 | 120 | 5 | 150 | 6 | 180 | 7 | 210 | 8 | 240 | 9 | 269 | 10 | 289 | Start a new game | Fix a ball | Previous games | Advanced
+18:28:08 SHOT 19-tenth-complete
+18:28:08 CONTINUED_CHECKS_PASS

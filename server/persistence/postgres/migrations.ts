@@ -1,9 +1,12 @@
 import type { Pool, PoolClient } from "pg";
+import { assertActivePinStatesIndexable } from "../../../src/persistence/pinStateAssociationPrecheck.ts";
 
 export interface Migration {
   version: number;
   name: string;
   sql: string;
+  /** Runs inside the migration transaction before sql; throw to fail closed. */
+  precheck?: (client: PoolClient) => Promise<void>;
 }
 
 const V001 = `
@@ -86,8 +89,38 @@ CREATE INDEX idx_conflicts_entity ON sync_conflicts(entity_type, entity_id);
 CREATE INDEX idx_idempotency_entity ON submission_idempotency(entity_type, entity_id);
 `;
 
+const V002 = `
+CREATE UNIQUE INDEX IF NOT EXISTS ux_pinstate_active_roll
+ON canonical_entities ((payload->>'roll_id'))
+WHERE entity_type = 'PinState' AND archived = FALSE;
+`;
+
+async function precheckPinStateActiveRoll(client: PoolClient): Promise<void> {
+  const { rows } = await client.query<{
+    entity_id: string;
+    archived: boolean;
+    payload: unknown;
+  }>(
+    `SELECT entity_id, archived, payload FROM canonical_entities
+     WHERE entity_type = 'PinState'`,
+  );
+  assertActivePinStatesIndexable(
+    rows.map((r) => ({
+      id: r.entity_id,
+      archived: r.archived,
+      payload: r.payload,
+    })),
+  );
+}
+
 export const MIGRATIONS: readonly Migration[] = [
   { version: 1, name: "sync_foundation", sql: V001 },
+  {
+    version: 2,
+    name: "pinstate_active_roll_unique",
+    sql: V002,
+    precheck: precheckPinStateActiveRoll,
+  },
 ];
 
 export async function runMigrations(pool: Pool): Promise<void> {
@@ -107,6 +140,7 @@ export async function runMigrations(pool: Pool): Promise<void> {
     for (const m of MIGRATIONS) {
       if (applied.has(m.version)) continue;
       await withClientTransaction(client, async () => {
+        if (m.precheck) await m.precheck(client);
         await client.query(m.sql);
         await client.query(
           "INSERT INTO schema_migrations (version, name, applied_at) VALUES ($1, $2, now())",

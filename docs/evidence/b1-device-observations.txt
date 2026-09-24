@@ -1,0 +1,93 @@
+﻿18:19:36 BEGIN B1 device verification
+18:19:44 launch UI: Bowling | This game Â· 9/21/2026, 6:15:12â€¯PM | This game needs a later ball fixed before the score can be finished. | 1 | 10 | 4 | â€¦ | 2 | 8 | 3 | Â· | 5 | 6 | 7 | 9 | Fix a ball | Previous games | Start a new game | Advanced
+18:19:47 MISS '9/13/2026' [existing-game-screen] texts=Bowling || This game Â· 9/21/2026, 6:15:12â€¯PM || This game needs a later ball fixed before the score can be finished. || 1 || 10 || 4 || â€¦ || 2 || 8 || 3 || Â· || 5 || 6 || 7 || 9 || Fix a ball || Previous games || Start a new game || Advanced
+18:19:49 TAP 'Previous games' @ 418,1888
+18:19:54 SAW '9/13/2026'
+18:19:54 Pre-existing 9/13 game observed in Previous games
+18:19:55 SHOT 01-existing-game-preserved -> C:\Users\Drago\Documents\Bowling\docs\evidence\b1-device-01-existing-game-preserved.png
+18:19:57 TAP 'Start a new game' @ 720,847
+18:20:02 SAW 'How many pins did you knock down'
+18:20:02 SHOT 02-new-game-prompt -> C:\Users\Drago\Documents\Bowling\docs\evidence\b1-device-02-new-game-prompt.png
+18:20:05 TAP_PIN '3' #1 bounds=[761,816][941,996]
+18:20:09 SAW 'Which pins are still standing'
+18:20:10 SHOT 03-standing-optional -> C:\Users\Drago\Documents\Bowling\docs\evidence\b1-device-03-standing-optional.png
+18:20:12 TAP 'Save' @ 720,2137
+18:20:17 SAW 'Pin detail not recorded'
+18:20:17 SHOT 04-pinfall-only-saved -> C:\Users\Drago\Documents\Bowling\docs\evidence\b1-device-04-pinfall-only-saved.png
+18:20:20 TAP_PIN '4' #1 bounds=[971,883][1151,1063]
+18:20:24 TAP 'Save' @ 720,2137
+18:20:29 SAW 'Frame 2'
+18:20:31 TAP_PIN '8' #1 bounds=[761,1093][941,1273]
+18:20:36 TAP_STAND '9' #2 bounds=[761,1834][941,2014]
+18:20:39 TAP_STAND '10' #2 bounds=[971,1834][1151,2014]
+18:20:43 TAP 'Save' @ 720,2137
+18:20:47 SAW 'Standing: 9, 10'
+18:20:48 SHOT 05-standing-numbered -> C:\Users\Drago\Documents\Bowling\docs\evidence\b1-device-05-standing-numbered.png
+18:20:51 UI: Bowling | This game Â· 9/21/2026, 6:19:57â€¯PM | Saved: Frame 2, 1st ball = 8. Standing: 9, 10. | Frame 2 Â· 2nd ball | How many pins did you knock down on this ball? | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | Â· | â€¦ | Fix a ball | Previous games | Start a new game | Advanced
+18:20:53 SAW 'Frame 2'
+18:20:56 TAP_PIN '2' #1 bounds=[551,816][731,996]
+18:21:00 TAP_STAND '1' #2 bounds=[131,1624][311,1804]
+18:21:04 TAP_STAND '1' #2 bounds=[131,1624][311,1804]
+18:21:07 TAP 'Save' @ 720,2137
+18:21:12 SAW 'Standing: none'
+18:21:12 SHOT 06-explicit-empty-standing -> C:\Users\Drago\Documents\Bowling\docs\evidence\b1-device-06-explicit-empty-standing.png
+18:21:15 TAP_PIN '5' #1 bounds=[131,1026][311,1206]
+18:21:20 SAW 'Which pins are still standing'
+18:21:22 TAP 'Cancel' @ 720,2354
+18:21:29 SAW 'How many pins did you knock down'
+18:21:30 SHOT 07-cancel-no-write -> C:\Users\Drago\Documents\Bowling\docs\evidence\b1-device-07-cancel-no-write.png
+18:21:30 Cancel path OK
+18:21:32 TAP 'Fix a ball' @ 720,2610
+18:21:37 SAW 'Choose the ball to change'
+18:21:39 TAP 'Frame 1, 1st ball = 3 Â· detail not recorded' @ 720,1690
+18:21:44 SAW 'What did you actually knock down'
+18:21:44 SHOT 08-fix-selected -> C:\Users\Drago\Documents\Bowling\docs\evidence\b1-device-08-fix-selected.png
+18:21:49 TAP_STAND '1' #2 bounds=[131,1422][311,1602]
+18:21:53 TAP_STAND '2' #2 bounds=[341,1422][521,1602]
+18:21:56 TAP_STAND '3' #2 bounds=[551,1422][731,1602]
+18:22:00 TAP_STAND '4' #2 bounds=[761,1422][941,1602]
+18:22:03 TAP_STAND '5' #2 bounds=[971,1422][1151,1602]
+18:22:07 TAP_STAND '6' #2 bounds=[131,1632][311,1812]
+18:22:11 TAP_STAND '7' #2 bounds=[341,1632][521,1812]
+18:22:17 TAP 'Save standing pins' @ 720,1935
+18:22:23 after add: Bowling | This game Â· 9/21/2026, 6:19:57â€¯PM | Saved standing pins: 1, 2, 3, 4, 5, 6, 7. | 1 | 3 | 4 | 7 | 2 | 8 | / | â€¦ | Â· | 5 | 6 | 9 | 10 | Choose the ball to change. | Frame 1, 1st ball = 3 Â· standing 1,2,3,4,5,6,7 (EFFECTIVE) | Frame 1, 2nd ball = 4 Â· detail not recorded | Frame 2, 1st ball = 8 Â· standing 9,10 (EFFECTIVE) | Frame 2, 2nd ball = 2 Â· standing none (EFFECTIVE) | Change Frame 1, 1st ball. It is now 3. What did you actually knock down? | 0
+18:22:26 SAW 'Saved standing pins:'
+18:22:26 SHOT 09-add-detail -> C:\Users\Drago\Documents\Bowling\docs\evidence\b1-device-09-add-detail.png
+18:22:29 TAP 'Frame 1, 1st ball = 3 Â· standing 1,2,3,4,5,6,7 (EFFECTIVE)' @ 720,1724
+18:22:34 TAP_STAND '7' #2 bounds=[341,1412][521,1592]
+18:22:38 TAP_STAND '8' #2 bounds=[551,1412][731,1592]
+18:22:42 TAP 'Save standing pins' @ 720,1715
+18:22:49 after correct: Bowling | This game Â· 9/21/2026, 6:19:57â€¯PM | Saved standing pins: 1, 2, 3, 4, 5, 6, 8. | 1 | 3 | 4 | 7 | 2 | 8 | / | â€¦ | Â· | 5 | 6 | 9 | 10 | Choose the ball to change. | Frame 1, 1st ball = 3 Â· standing 1,2,3,4,5,6,8 (EFFECTIVE) | Frame 1, 2nd ball = 4 Â· detail not recorded | Frame 2, 1st ball = 8 Â· standing 9,10 (EFFECTIVE) | Frame 2, 2nd ball = 2 Â· standing none (EFFECTIVE) | Change Frame 1, 1st ball. It is now 3. What did you actually knock down? | 0
+18:22:49 SHOT 10-correct-detail -> C:\Users\Drago\Documents\Bowling\docs\evidence\b1-device-10-correct-detail.png
+18:22:52 TAP 'Frame 1, 1st ball = 3 Â· standing 1,2,3,4,5,6,8 (EFFECTIVE)' @ 720,1724
+18:22:57 SAW 'Remove pin detail'
+18:23:00 TAP 'Remove pin detail' @ 720,1933
+18:23:06 SAW 'not recorded'
+18:23:06 SHOT 11-remove-detail -> C:\Users\Drago\Documents\Bowling\docs\evidence\b1-device-11-remove-detail.png
+18:23:09 TAP 'Frame 1, 1st ball = 3 Â· detail not recorded' @ 720,1690
+18:23:16 TAP_STAND '4' #2 bounds=[761,1422][941,1602]
+18:23:19 TAP_STAND '5' #2 bounds=[971,1422][1151,1602]
+18:23:23 TAP_STAND '6' #2 bounds=[131,1632][311,1812]
+18:23:26 TAP_STAND '7' #2 bounds=[341,1632][521,1812]
+18:23:30 TAP_STAND '8' #2 bounds=[551,1632][731,1812]
+18:23:33 TAP_STAND '9' #2 bounds=[761,1632][941,1812]
+18:23:37 TAP_STAND '10' #2 bounds=[971,1632][1151,1812]
+18:23:40 TAP 'Save standing pins' @ 720,1935
+18:23:47 after readd: Bowling | This game Â· 9/21/2026, 6:19:57â€¯PM | Saved standing pins: 4, 5, 6, 7, 8, 9, 10. | 1 | 3 | 4 | 7 | 2 | 8 | / | â€¦ | Â· | 5 | 6 | 9 | 10 | Choose the ball to change. | Frame 1, 1st ball = 3 Â· standing 4,5,6,7,8,9,10 (EFFECTIVE) | Frame 1, 2nd ball = 4 Â· detail not recorded | Frame 2, 1st ball = 8 Â· standing 9,10 (EFFECTIVE) | Frame 2, 2nd ball = 2 Â· standing none (EFFECTIVE) | Change Frame 1, 1st ball. It is now 3. What did you actually knock down? | 0
+18:23:48 SHOT 12-readd-detail -> C:\Users\Drago\Documents\Bowling\docs\evidence\b1-device-12-readd-detail.png
+18:23:48 Fix add/correct/remove/re-add path exercised
+18:23:51 TAP 'Frame 1, 1st ball = 3 Â· standing 4,5,6,7,8,9,10 (EFFECTIVE)' @ 720,1724
+18:23:56 TAP_PIN '10' #2 bounds=[131,810][311,990]
+18:24:02 incompatible UI: Bowling | This game Â· 9/21/2026, 6:19:57â€¯PM | Saved. This game needs a later ball fixed before the score can be finished. | This game needs a later ball fixed before the score can be finished. | 1 | 10 | 4 | â€¦ | 2 | 8 | 3 | Â· | 5 | 6 | 7 | 9 | Choose the ball to change. | Frame 1, 1st ball = 10 Â· standing 4,5,6,7,8,9,10 (STALE_DETAIL) | Frame 1, 2nd ball = 4 Â· detail not recorded | Frame 2, 1st ball = 8 Â· standing 9,10 (EFFECTIVE) | Frame 2, 2nd ball = 2 Â· standing none (EFFECTIVE) | Change Frame 1, 1st ball. It is now 10. What did you actually knock down? | 0
+18:24:03 SHOT 13-incompatible-detail -> C:\Users\Drago\Documents\Bowling\docs\evidence\b1-device-13-incompatible-detail.png
+18:24:03 OK incompatible status visible: Frame 1, 1st ball = 10 Â· standing 4,5,6,7,8,9,10 (STALE_DETAIL)
+18:24:08 Cancel not visible; force-restart to continue remaining checks
+18:24:21 SAW 'Bowling'
+18:24:21 SHOT 14-cold-restart -> C:\Users\Drago\Documents\Bowling\docs\evidence\b1-device-14-cold-restart.png
+18:24:24 cold UI: Bowling | This game Â· 9/21/2026, 6:19:57â€¯PM | This game needs a later ball fixed before the score can be finished. | 1 | 10 | 4 | â€¦ | 2 | 8 | 3 | Â· | 5 | 6 | 7 | 9 | Fix a ball | Previous games | Start a new game | Advanced
+18:24:32 hot UI: Bowling | This game Â· 9/21/2026, 6:19:57â€¯PM | This game needs a later ball fixed before the score can be finished. | 1 | 10 | 4 | â€¦ | 2 | 8 | 3 | Â· | 5 | 6 | 7 | 9 | Fix a ball | Previous games | Start a new game | Advanced
+18:24:32 SHOT 15-hot-resume -> C:\Users\Drago\Documents\Bowling\docs\evidence\b1-device-15-hot-resume.png
+18:24:35 TAP 'Previous games' @ 418,1888
+18:24:39 MISS '9/13/2026' [history-existing] texts=Bowling || This game Â· 9/21/2026, 6:19:57â€¯PM || This game needs a later ball fixed before the score can be finished. || These are your games. Tap one to open it. Starting a new game does not delete others. || Start a new game || 9/21/2026, 6:19:57â€¯PM || Open || 9/21/2026, 6:15:12â€¯PM || 9/21/2026, 6:11:24â€¯PM || 9/21/2026, 6:07:17â€¯PM || 9/21/2026, 6:03:07â€¯PM || 9/21/2026, 6:01:54â€¯PM || 9/21/2026, 5:58:37â€¯PM || 9/21/2026, 5:56:28â€¯PM || 9/21/2026, 5:54:54â€¯PM || 9/21/2026, 5:51:47â€¯PM || 9/21/2026, 5:48:38â€¯PM
+18:24:39 FAIL_STOP: Existing game missing from history
+18:24:40 SHOT fail-stop -> C:\Users\Drago\Documents\Bowling\docs\evidence\b1-device-fail-stop.png

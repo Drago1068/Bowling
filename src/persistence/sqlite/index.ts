@@ -19,6 +19,7 @@ export { createCorrectionStore } from "./correctionStore.ts";
 export { createConflictStore } from "./conflictStore.ts";
 export {
   applyLocalMutation,
+  applyLocalMutations,
   type LocalMutationInput,
   type LocalMutationResult,
   type LocalOperation,

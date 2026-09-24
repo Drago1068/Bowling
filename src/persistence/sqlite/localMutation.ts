@@ -30,23 +30,43 @@ export interface LocalMutationResult {
 }
 
 /**
+ * Apply multiple local mutations atomically: all entity writes and outbox
+ * entries commit together or all roll back.
+ */
+export function applyLocalMutations(
+  db: SqliteDriver,
+  inputs: readonly LocalMutationInput[],
+  faults?: PersistenceFaults,
+): LocalMutationResult[] {
+  if (inputs.length === 0) return [];
+  const entities = createEntityStore(db);
+  const outbox = createOutboxStore(db);
+  return transaction(
+    db,
+    () => {
+      const results: LocalMutationResult[] = [];
+      for (const input of inputs) {
+        results.push(applyOne(entities, outbox, input, faults));
+      }
+      return results;
+    },
+    faults,
+  );
+}
+
+/**
  * Apply a local mutation atomically: the canonical entity write and its outbox
- * entry are committed in a single transaction. If either fails, neither becomes
- * durable, so a partially-durable ambiguous state is impossible.
- *
- * The caller must not treat the mutation as saved until this function returns.
+ * entry are committed in a single transaction.
  */
 export function applyLocalMutation(
   db: SqliteDriver,
   input: LocalMutationInput,
   faults?: PersistenceFaults,
 ): LocalMutationResult {
-  const entities = createEntityStore(db);
-  const outbox = createOutboxStore(db);
-  return transaction(db, () => apply(entities, outbox, input, faults), faults);
+  return applyLocalMutations(db, [input], faults)[0]!;
 }
 
-function apply(
+function applyOne(
   entities: CanonicalEntityStore,
   outbox: SyncOutboxStore,
   input: LocalMutationInput,
@@ -98,7 +118,10 @@ function apply(
 
   faults?.afterCanonicalWrite?.();
 
-  const payload = opType === "DELETE" ? { entity_type: entity.entity_type, entity_id: entity.id } : persisted;
+  const payload =
+    opType === "DELETE"
+      ? { entity_type: entity.entity_type, entity_id: entity.id }
+      : persisted;
   const envelope = buildEnvelope({
     submission_id: input.submissionId,
     device_id: deviceId,
