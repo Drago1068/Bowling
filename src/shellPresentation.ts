@@ -278,6 +278,123 @@ export function gameDateInMetricRange(
   return true;
 }
 
+/** Window → bucket size for the Analysis average trend chart (All time = calendar years). */
+export type AverageTrendGranularity = "day" | "week" | "month" | "year";
+
+export function averageTrendGranularity(
+  rangeId: MetricRangeId,
+): AverageTrendGranularity {
+  if (rangeId === "week") return "day";
+  if (rangeId === "month") return "week";
+  if (rangeId === "year") return "month";
+  return "year";
+}
+
+/** Strict YYYY-MM-DD check (rejects rolled-over dates like 2026-02-31). */
+export function isValidDateKey(key: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(key)) return false;
+  const d = parseLocalDateKey(key);
+  return (
+    d.getFullYear() === Number(key.slice(0, 4)) &&
+    d.getMonth() === Number(key.slice(5, 7)) - 1 &&
+    d.getDate() === Number(key.slice(8, 10))
+  );
+}
+
+/** Bucket size for a custom period: ≤14 days → day, ≤120 → week, ≤400 → month, else year. */
+export function customTrendGranularity(
+  fromKey: string,
+  toKey: string,
+): AverageTrendGranularity {
+  const days = Math.round(
+    (parseLocalDateKey(toKey).getTime() - parseLocalDateKey(fromKey).getTime()) /
+      86_400_000,
+  );
+  if (days <= 14) return "day";
+  if (days <= 120) return "week";
+  if (days <= 400) return "month";
+  return "year";
+}
+
+export type HandicapSettings = { basisScore: number; percentage: number };
+
+/**
+ * League handicap: (Basis Score − average) × Percentage, exactly as entered —
+ * negative results are kept as-is. Null settings or a non-finite average → null.
+ */
+export function computeHandicap(
+  average: number,
+  settings: HandicapSettings | null,
+): number | null {
+  if (!settings || !Number.isFinite(average)) return null;
+  if (!Number.isFinite(settings.basisScore) || !Number.isFinite(settings.percentage)) {
+    return null;
+  }
+  const raw = (settings.basisScore - average) * (settings.percentage / 100);
+  return Math.round(raw * 10) / 10;
+}
+
+export type AverageTrendPoint = {
+  label: string;
+  average: number;
+  count: number;
+};
+
+const MONTHS_SHORT = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+];
+
+/**
+ * Average score per bucket (day/week/month/year) over already range-filtered
+ * completed games — presentation only, oldest → newest.
+ */
+export function computeAverageTrend(
+  games: readonly { dateKey: string; finalTotal: number | null }[],
+  granularity: AverageTrendGranularity,
+): AverageTrendPoint[] {
+  const valid = games.filter(
+    (g): g is { dateKey: string; finalTotal: number } =>
+      typeof g.finalTotal === "number",
+  );
+  if (valid.length === 0) return [];
+  const bucketKey = (dateKey: string): string => {
+    if (granularity === "day") return dateKey;
+    if (granularity === "week") return calendarWeekKey(dateKey);
+    if (granularity === "month") return dateKey.slice(0, 7);
+    return dateKey.slice(0, 4);
+  };
+  const buckets = new Map<string, { sum: number; count: number }>();
+  for (const g of valid) {
+    const key = bucketKey(g.dateKey);
+    const existing = buckets.get(key);
+    if (existing) {
+      existing.sum += g.finalTotal;
+      existing.count += 1;
+    } else {
+      buckets.set(key, { sum: g.finalTotal, count: 1 });
+    }
+  }
+  const multiYear =
+    new Set(valid.map((g) => g.dateKey.slice(0, 4))).size > 1;
+  const labelFor = (key: string): string => {
+    if (granularity === "year") return key;
+    const [y, m, d] = key.split("-").map(Number);
+    const monthName = MONTHS_SHORT[(m ?? 1) - 1] ?? "";
+    if (granularity === "month") {
+      return multiYear ? `${monthName} ${String(y).slice(2)}` : monthName;
+    }
+    return `${monthName} ${d ?? ""}`.trim();
+  };
+  return [...buckets.entries()]
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    .map(([key, bucket]) => ({
+      label: labelFor(key),
+      average: Math.round((bucket.sum / bucket.count) * 10) / 10,
+      count: bucket.count,
+    }));
+}
+
 function meanScore(scores: readonly number[]): number | null {
   if (!scores.length) return null;
   const sum = scores.reduce((a, b) => a + b, 0);
@@ -314,6 +431,85 @@ export function isQualifyingCompletedGame(g: {
   finalTotal: number | null;
 }): boolean {
   return g.status === "complete" && typeof g.finalTotal === "number";
+}
+
+/** Completed-game candidate row for the Done-for-the-Day set summary. */
+export type GameSetCandidate = {
+  dateKey: string;
+  status: string;
+  finalTotal: number | null;
+  gameNumber: number;
+};
+
+export type GameSetSummary = {
+  /** Local YYYY-MM-DD the set was bowled (defaults to today). */
+  dateKey: string;
+  /** Human label for the set day, e.g. "Sep 26" (year when not current). */
+  label: string;
+  games: number;
+  totalPins: number;
+  average: number | null;
+  high: { gameNumber: number; total: number } | null;
+  low: { gameNumber: number; total: number } | null;
+  /** Completed games of the set, oldest → newest. */
+  entries: Array<{ gameNumber: number; total: number }>;
+};
+
+/**
+ * The game set behind Done for the Day: completed games from one local day
+ * (default today). Facts only — counts, sums, and extremes; no claims.
+ */
+export function computeGameSetSummary(
+  games: readonly GameSetCandidate[],
+  setKey = formatLocalTodayKey(),
+): GameSetSummary {
+  const entries = games
+    .filter(
+      (g): g is GameSetCandidate & { finalTotal: number } =>
+        g.dateKey === setKey &&
+        isQualifyingCompletedGame(g) &&
+        typeof g.finalTotal === "number",
+    )
+    .sort((a, b) => a.gameNumber - b.gameNumber)
+    .map((g) => ({ gameNumber: g.gameNumber, total: g.finalTotal }));
+  const totalPins = entries.reduce((sum, e) => sum + e.total, 0);
+  let high: GameSetSummary["high"] = null;
+  let low: GameSetSummary["low"] = null;
+  for (const entry of entries) {
+    if (!high || entry.total > high.total) {
+      high = { gameNumber: entry.gameNumber, total: entry.total };
+    }
+    if (!low || entry.total < low.total) {
+      low = { gameNumber: entry.gameNumber, total: entry.total };
+    }
+  }
+  const [yearRaw, monthRaw, dayRaw] = setKey.split("-").map(Number);
+  const date =
+    yearRaw !== undefined &&
+    monthRaw !== undefined &&
+    dayRaw !== undefined &&
+    Number.isInteger(yearRaw) &&
+    Number.isInteger(monthRaw) &&
+    Number.isInteger(dayRaw)
+      ? new Date(yearRaw, monthRaw - 1, dayRaw)
+      : null;
+  const label = date
+    ? `${MONTHS_SHORT[date.getMonth()] ?? ""} ${date.getDate()}${
+        date.getFullYear() === new Date().getFullYear()
+          ? ""
+          : `, ${date.getFullYear()}`
+      }`.trim()
+    : setKey;
+  return {
+    dateKey: setKey,
+    label,
+    games: entries.length,
+    totalPins,
+    average: meanScore(entries.map((e) => e.total)),
+    high,
+    low,
+    entries,
+  };
 }
 
 /** Completed valid games only — excludes active, incomplete, invalid, repair. */
@@ -450,6 +646,9 @@ export function analysisAvailableSummary(
 export const ANALYSIS_PENDING_COPY =
   "Per-game Strike %, Spare %, leaves, and trends arrive with analysis (B2/B3) and are not computed yet.";
 
+export const ANALYSIS_B3_PENDING_COPY =
+  "Historical totals and trends arrive with B3 and are not computed yet.";
+
 /* Lane commentary: flavor quips derived from already-recorded facts. Never
    authoritative, never stored, never shown for Fix corrections. */
 
@@ -549,4 +748,164 @@ export function completedSaveBanner(
   return finalTotal == null
     ? `Saved ✓ · ${savedAt}`
     : `Saved ✓ · Final ${finalTotal} · ${savedAt}`;
+}
+
+/* Analysis focus areas: four aggregate rates derived from already-recorded
+   rolls of completed games. Presentation-only; no scoring facts are stored. */
+
+export type Handedness = "right" | "left";
+
+export type FocusRate = {
+  hits: number;
+  chances: number;
+  /** Percentage with one decimal, or null when there is no denominator. */
+  rate: number | null;
+};
+
+export type FocusAnalysis = {
+  games: number;
+  /** Frame-opening deliveries: average pinfall plus strike share. */
+  firstBall: FocusRate & { averagePinfall: number | null };
+  /** First balls whose recorded detail shows both pocket pins down. */
+  pocket: FocusRate;
+  /** Strike frames that could be followed by another strike, and were. */
+  doubles: FocusRate;
+  /** Spare conversions overall, split by single-pin vs multi-pin leaves. */
+  spares: FocusRate & {
+    singlePin: FocusRate;
+    multiPin: FocusRate;
+    /** Opportunities whose first-ball leave detail was not recorded. */
+    missingDetail: number;
+  };
+  /** Frames finished without an open frame (strike or spare). */
+  fill: FocusRate;
+};
+
+type FocusRoll = {
+  frame_number: number;
+  roll_number: number;
+  pinfall: number;
+  standing_pins: number[] | null;
+};
+
+export type FocusViewLike = {
+  sheet: { status: string } | null;
+  rolls: readonly FocusRoll[];
+};
+
+function focusRate(hits: number, chances: number): FocusRate {
+  return {
+    hits,
+    chances,
+    rate: chances === 0 ? null : Math.round((hits / chances) * 1000) / 10,
+  };
+}
+
+/**
+ * Aggregates the four Analysis focus areas across completed games.
+ * Pocket share treats a first ball as a pocket hit when the headpin and the
+ * pocket-side pin are both down in the recorded standing detail
+ * (1-3 for right-handed, 1-2 for left-handed).
+ */
+export function computeFocusAnalysis(
+  views: readonly FocusViewLike[],
+  handedness: Handedness,
+): FocusAnalysis {
+  const pocketPin = handedness === "right" ? 3 : 2;
+  let games = 0;
+  let fbShots = 0;
+  let fbPins = 0;
+  let fbStrikes = 0;
+  let pocketShots = 0;
+  let pocketHits = 0;
+  let doubleOpps = 0;
+  let doubles = 0;
+  let spareOpps = 0;
+  let spareConvs = 0;
+  let singleOpps = 0;
+  let singleConvs = 0;
+  let multiOpps = 0;
+  let multiConvs = 0;
+  let missingDetail = 0;
+  let frames = 0;
+  let filled = 0;
+
+  for (const view of views) {
+    if (view.sheet?.status !== "COMPLETED") continue;
+    games++;
+    const byFrame = new Map<number, FocusRoll[]>();
+    for (const roll of view.rolls) {
+      const list = byFrame.get(roll.frame_number);
+      if (list) list.push(roll);
+      else byFrame.set(roll.frame_number, [roll]);
+    }
+    const strikeFrame = new Set<number>();
+    for (const [frameNumber, frameRolls] of byFrame) {
+      const first = frameRolls.find((r) => r.roll_number === 1);
+      const second = frameRolls.find((r) => r.roll_number === 2);
+      if (!first) continue;
+      frames++;
+
+      const opening = first.pinfall >= 0 && first.pinfall <= 10;
+      if (opening) {
+        fbShots++;
+        fbPins += first.pinfall;
+        if (first.pinfall === 10) fbStrikes++;
+        const standing = first.standing_pins;
+        if (standing != null) {
+          pocketShots++;
+          if (!standing.includes(1) && !standing.includes(pocketPin)) {
+            pocketHits++;
+          }
+        }
+      }
+
+      const frameStrike = first.pinfall === 10;
+      if (frameStrike) strikeFrame.add(frameNumber);
+      const frameSpare =
+        !frameStrike && second != null && first.pinfall + second.pinfall === 10;
+      if (frameStrike || frameSpare) filled++;
+
+      if (frameNumber <= 9) {
+        if (!frameStrike && second) {
+          spareOpps++;
+          const converted = first.pinfall + second.pinfall === 10;
+          if (converted) spareConvs++;
+          const standing = first.standing_pins;
+          if (!standing || standing.length === 0) {
+            missingDetail++;
+          } else if (standing.length === 1) {
+            singleOpps++;
+            if (converted) singleConvs++;
+          } else {
+            multiOpps++;
+            if (converted) multiConvs++;
+          }
+        }
+      }
+    }
+    for (let f = 1; f <= 9; f++) {
+      if (!strikeFrame.has(f)) continue;
+      doubleOpps++;
+      if (strikeFrame.has(f + 1)) doubles++;
+    }
+  }
+
+  return {
+    games,
+    firstBall: {
+      ...focusRate(fbStrikes, fbShots),
+      averagePinfall:
+        fbShots === 0 ? null : Math.round((fbPins / fbShots) * 10) / 10,
+    },
+    pocket: focusRate(pocketHits, pocketShots),
+    doubles: focusRate(doubles, doubleOpps),
+    spares: {
+      ...focusRate(spareConvs, spareOpps),
+      singlePin: focusRate(singleConvs, singleOpps),
+      multiPin: focusRate(multiConvs, multiOpps),
+      missingDetail,
+    },
+    fill: focusRate(filled, frames),
+  };
 }

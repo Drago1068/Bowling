@@ -12,7 +12,7 @@ import {
   startGame,
 } from "../src/scoring/session.ts";
 import {
-  ANALYSIS_PENDING_COPY,
+  ANALYSIS_B3_PENDING_COPY,
   analysisAvailableSummary,
   ballSaveQuip,
   completedSaveBanner,
@@ -86,7 +86,7 @@ describe("O2 frozen top nav", () => {
     assert.ok(
       analysisAvailableSummary(0, null).includes("first completed game"),
     );
-    assert.ok(ANALYSIS_PENDING_COPY.includes("not computed yet"));
+    assert.ok(ANALYSIS_B3_PENDING_COPY.includes("not computed yet"));
   });
 });
 

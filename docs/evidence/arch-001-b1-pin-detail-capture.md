@@ -917,6 +917,38 @@ NAS_ACCESSED=false
 
 White/red standing-pin visual, raised-bar tap feel, and the overall look —
 device touching stopped when the phone went to the user's messaging app.
+
+## B2 per-game analysis (authorized, implemented, uncommitted, installed)
+
+```ini
+WORK_PACKAGE=BOWLING_B2_PER_GAME_ANALYSIS
+RESULT=READY_FOR_USER_EYES_REVIEW
+SCOPE=CAPTURE_ONLY_PER_GAME_ADR007_61_63
+ROOT_TESTS=228_OF_228_PASS_WITH_16_NEW_B2_GATES
+TYPECHECK=PASS
+TYPECHECK_MOBILE=PASS
+SERVER_TESTS=SKIPPED_NO_LOCAL_POSTGRES_ECONNREFUSED_55433
+CANDIDATE_APK_SHA256=B7B80C40608A2C9A7D65DFFC9D3CBD2C3A7EE9A3860BAC68A6E8C26A53C9B51C
+INSTALL=adb_install_-r_Success
+FIRST_INSTALL_TIME_PRESERVED=2026-09-07_12:13:15
+DATA_PRESERVED=true
+DEVICE=R3CY40E6FVJ
+DEVICE_UI_SCREENSHOTS=PENDING_SECURE_LOCK
+GAMES_CREATED_BY_VERIFICATION=false
+OBSERVATIONS=docs/evidence/b2-analysis-device-observations.txt
+B3_STARTED=false
+HISTORICAL_AGGREGATION_IN_B2=false
+TRENDS_DEFERRED=true
+COMMIT_AUTHORIZED=false
+PUSH_AUTHORIZED=false
+NAS_ACCESSED=false
+```
+
+### Changed (analysis derived from recorded facts only)
+
+- New engine + 16 gates (see observations). No scoring, persistence, sync,
+  dependency, or migration changes. Completed-game card and per-game
+  Analysis-screen list; exclusions listed with counts; B3 note kept honest.
 ## Dedicated Advanced screen (2026-09-24, uncommitted, device verified)
 
 ```ini

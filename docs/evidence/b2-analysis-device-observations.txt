@@ -1,0 +1,21 @@
+B2 per-game analysis (2026-09-25, APK B7B80C40…, R3CY40E6FVJ).
+Data-preserving install, hash-matched, firstInstallTime preserved. No games
+created, edited, or discarded (no verification taps performed).
+
+1. Engine `src/scoring/analysis.ts` (new): analyzeFirstBall (openings only,
+   tenth fills excluded, pinfall-only eligible), analyzeLeaves (recorded
+   nonempty sets only; missing/empty disclosed; later-ball detail excluded),
+   analyzeSpares (frames 1–9, second ball required, leave breakdowns gated on
+   recorded first-ball detail), analyzeGameView (incomplete/repair excluded
+   with reasons; derived only), analyzeScoringView, formatGameAnalysis.
+2. UI: completed game view shows a per-game analysis card; Analysis screen
+   lists per eligible completed game with exclusion counts; B3/trends note
+   kept honest. No historical aggregation anywhere.
+3. Tests: tests/b2.per-game-analysis.test.ts, 16 gates (incl. perfect-game,
+   all-spares, leaves end to end, incomplete/repair exclusion + preservation,
+   formatting honesty). One self-caught spec misread fixed during development
+   (incomplete games correctly yield the ineligible skeleton, not partial
+   distributions).
+4. On-device UI screenshots pending: phone fell back to secure lock and
+   dismiss-keyguard no longer bypasses it. Installed + hash verified only;
+   Analysis visuals await everyday use. No taps attempted while locked.

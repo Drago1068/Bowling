@@ -11,6 +11,24 @@ export {
   type ScoringValidationResult,
 } from "./types.ts";
 export { deriveGame } from "./derive.ts";
+export {
+  analyzeFirstBall,
+  analyzeGameView,
+  analyzeLeaves,
+  analyzeScoringView,
+  analyzeSpares,
+  formatGameAnalysis,
+  leaveLabel,
+  leaveRows,
+  sparePinSplit,
+  type FirstBallAnalysis,
+  type GameAnalysis,
+  type LeaveCount,
+  type LeaveRow,
+  type LeavesAnalysis,
+  type SpareLeaveBreakdown,
+  type SparesAnalysis,
+} from "./analysis.ts";
 export { validateNextRoll, type NextRollCandidate } from "./validate.ts";
 export { loadGameFacts } from "./store.ts";
 export {

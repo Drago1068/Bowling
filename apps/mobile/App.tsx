@@ -4,12 +4,15 @@ import {
   AppState,
   KeyboardAvoidingView,
   Platform,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
+import {
+  SafeAreaProvider,
+  SafeAreaView,
+} from "react-native-safe-area-context";
 import {
   createSqliteLifecycleController,
   type ApplicationInitResult,
@@ -18,12 +21,17 @@ import {
   type NetworkAvailability,
 } from "../../src/portable.ts";
 import { ensureMobileCrypto } from "./src/ensureCrypto.ts";
+import {
+  LoadingLaneArt,
+  PageBackground,
+  PinDownArt,
+} from "./src/artwork.tsx";
 import { openMobileDatabase } from "./src/openDatabase.ts";
 import {
   runExpoSqliteConformance,
   type NativeValidationReport,
 } from "./src/nativeValidation.ts";
-import { ScoringPanel, TopNavBar, topNavSnapshotEqual, type AdvancedModel, type TopNavModel } from "./src/scoringPanel.tsx";
+import { ScoringPanel, NewGameConfirmBox, BottomTabBar, topNavSnapshotEqual, type AdvancedModel, type TopNavModel } from "./src/scoringPanel.tsx";
 
 type ScreenState =
   | { phase: "loading"; note: string }
@@ -61,6 +69,11 @@ export default function App() {
   const handleTopNav = useCallback((model: TopNavModel | null) => {
     setTopNav((prev) => (topNavSnapshotEqual(prev, model) ? prev : model));
   }, []);
+  const scrollRef = useRef<ScrollView>(null);
+  const currentScreen = topNav?.screen ?? null;
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+  }, [currentScreen]);
   const adapterLabel = Platform.OS === "web" ? "sql.js (web preview)" : "expo-sqlite (native)";
 
   const publishFailure = useCallback((result: FailedInitResult, note: string) => {
@@ -185,30 +198,40 @@ export default function App() {
   };
 
   return (
+    <SafeAreaProvider>
     <SafeAreaView style={styles.safe}>
+      <View style={styles.background}>
+        <PageBackground />
+      </View>
       <StatusBar style="dark" />
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        {topNav &&
-        (topNav.actions.length > 0 || topNav.confirmNewGame) ? (
-          <View style={styles.frozenNav}>
-            <TopNavBar model={topNav} />
-          </View>
-        ) : null}
         <ScrollView
+          ref={scrollRef}
           style={styles.flex}
-          contentContainerStyle={styles.content}
+          contentContainerStyle={[
+            styles.content,
+            topNav && (topNav.screen === "landing" || topNav.screen === "game")
+              ? styles.contentTight
+              : null,
+          ]}
           keyboardShouldPersistTaps="handled"
         >
           {screen.phase === "loading" ? (
-            <Text style={styles.banner}>Loading — {screen.note}</Text>
+            <View style={styles.loadingBox}>
+              <LoadingLaneArt />
+              <Text style={styles.loadingNote}>Loading — {screen.note}</Text>
+            </View>
           ) : null}
 
           {screen.phase === "failed" ? (
             <View style={styles.failBox}>
-              <Text style={styles.failTitle}>{screen.result.status}</Text>
+              <View style={styles.failHead}>
+                <PinDownArt size={56} />
+                <Text style={styles.failTitle}>{screen.result.status}</Text>
+              </View>
               <Text style={styles.body}>{screen.note}</Text>
               <Text style={styles.body}>{recoveryLine}</Text>
               <Text style={styles.body}>
@@ -238,29 +261,53 @@ export default function App() {
 
           {screen.phase === "ready" && !screen.result.ok ? (
             <View style={styles.failBox}>
-              <Text style={styles.failTitle}>{screen.result.status}</Text>
+              <View style={styles.failHead}>
+                <PinDownArt size={56} />
+                <Text style={styles.failTitle}>{screen.result.status}</Text>
+              </View>
               <Text style={styles.body}>{screen.note}</Text>
             </View>
           ) : null}
 
         </ScrollView>
+        {topNav ? <NewGameConfirmBox model={topNav} /> : null}
+        {topNav ? <BottomTabBar model={topNav} /> : null}
       </KeyboardAvoidingView>
     </SafeAreaView>
+    </SafeAreaProvider>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#f4f1ea" },
-  flex: { flex: 1 },
-  frozenNav: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 4,
-    backgroundColor: "#f4f1ea",
-    borderBottomWidth: 1,
-    borderBottomColor: "#1f4d3a",
+  background: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
   },
-  content: { padding: 20, paddingBottom: 28, gap: 12, flexGrow: 1 },
+  flex: { flex: 1 },
+  content: { padding: 20, paddingBottom: 120, gap: 12, flexGrow: 1 },
+  contentTight: { paddingBottom: 8 },
+  loadingBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: "#d9d1c3",
+    shadowColor: "#1b1b1b",
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
+  },
+  loadingNote: { flex: 1, fontSize: 15, color: "#1b1b1b" },
+  failHead: { flexDirection: "row", alignItems: "center", gap: 12 },
   disclosure: {
     backgroundColor: "#fff",
     borderRadius: 10,
@@ -292,6 +339,11 @@ const styles = StyleSheet.create({
     gap: 8,
     borderWidth: 1,
     borderColor: "#c4564a",
+    shadowColor: "#8a1f16",
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 3,
   },
   failTitle: { fontSize: 16, fontWeight: "700", color: "#8a1f16" },
   row: { gap: 2 },
