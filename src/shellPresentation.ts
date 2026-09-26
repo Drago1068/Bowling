@@ -239,6 +239,8 @@ export type HomeHistoryGame = {
   status: "complete" | "active" | "repair";
   finalTotal: number | null;
   created_at: string;
+  /** Derived roll count when the source row carries it; absent means unknown (never discardable). */
+  rollCount?: number;
 };
 
 function parseLocalDateKey(dateKey: string): Date {
@@ -385,4 +387,166 @@ export function groupHistoryByDate(
       const list = (byDate.get(date) ?? []).slice().sort((a, b) => a.gameNumber - b.gameNumber);
       return { date, average: dateHeaderAverage(list), games: list };
     });
+}
+
+/* O2/UX remediation: frozen top navigation, new-game confirm, discard gating. */
+
+export type TopNavActionId = "home" | "history" | "done" | "start";
+
+export type AppScreen = "landing" | "history" | "analysis" | "advanced" | "game";
+
+/**
+ * Ordered navigation actions for the frozen top bar. The landing screen owns
+ * its bottom nav (bar hidden); History/Analysis offer Home back; the game
+ * view keeps Home + Previous games with Start only on completed games behind
+ * confirm. Bottom-of-screen duplicates were removed.
+ */
+export function topNavActions(state: {
+  screen: AppScreen;
+  historyOpen: boolean;
+  completed: boolean;
+}): TopNavActionId[] {
+  if (state.screen === "landing") return [];
+  if (
+    state.screen === "history" ||
+    state.screen === "analysis" ||
+    state.screen === "advanced"
+  )
+    return ["home"];
+  const actions: TopNavActionId[] = ["home", "history"];
+  if (state.completed) actions.push("done", "start");
+  return actions;
+}
+
+export function historyToggleLabel(historyOpen: boolean): string {
+  return historyOpen ? "Hide previous games" : "Previous games";
+}
+
+/** Discard is offered only for Active games holding zero recorded rolls. Unknown counts are never discardable. */
+export function discardableGame(game: { status: string; rollCount?: number }): boolean {
+  return game.status === "active" && game.rollCount === 0;
+}
+
+export function newGameConfirmNotice(activeCount: number): string {
+  return activeCount > 0
+    ? `You have ${activeCount} active game(s). Start a new game anyway?`
+    : "Start a new game?";
+}
+
+/**
+ * Honest Analysis-screen summary: only already-derived basics. Strike %,
+ * Spare %, leaves, and history trends are B2/B3 work and are not claimed.
+ */
+export function analysisAvailableSummary(
+  qualifyingGames: number,
+  overallAverage: number | null,
+): string {
+  if (overallAverage == null) {
+    return `Qualifying games: ${qualifyingGames}. Averages appear after your first completed game.`;
+  }
+  return `Qualifying games: ${qualifyingGames} · Overall average: ${overallAverage}.`;
+}
+
+export const ANALYSIS_PENDING_COPY =
+  "Per-game Strike %, Spare %, leaves, and trends arrive with analysis (B2/B3) and are not computed yet.";
+
+/* Lane commentary: flavor quips derived from already-recorded facts. Never
+   authoritative, never stored, never shown for Fix corrections. */
+
+const FAMOUS_SPLITS = new Set([
+  "7,10",
+  "4,6",
+  "4,7,10",
+  "6,7,10",
+  "3,10",
+  "2,7",
+]);
+
+export function strikeQuip(streak: number): string | null {
+  if (streak >= 4) return `${streak} in a row — unstoppable!`;
+  if (streak === 3) return "Nice Turkey!";
+  if (streak === 2) return "Double! Back-to-back strikes!";
+  if (streak === 1) return "Nice strike!";
+  return null;
+}
+
+/** Leave quips need recorded standing detail; unknown detail yields nothing. */
+export function leaveQuip(standingPins: readonly number[] | null): string | null {
+  if (!standingPins) return null;
+  if (standingPins.length === 1) return "You forgot one.";
+  const key = [...standingPins].sort((a, b) => a - b).join(",");
+  if (FAMOUS_SPLITS.has(key)) return "Nice split. Good luck.";
+  return null;
+}
+
+export function strikeStreakCount(
+  framesInOrder: readonly { frameNumber: number; isStrike: boolean }[],
+  throughFrame: number,
+): number {
+  const eligible = framesInOrder.filter(
+    (f) => f.frameNumber < 10 && f.frameNumber <= throughFrame,
+  );
+  let streak = 0;
+  for (let i = eligible.length - 1; i >= 0; i--) {
+    if (!eligible[i]!.isStrike) break;
+    streak++;
+  }
+  return streak;
+}
+
+export function ballSaveQuip(input: {
+  frameNumber: number;
+  rollNumber: number;
+  pinfall: number;
+  firstBallPinfall: number | null;
+  strikeStreak: number;
+  standingPins: readonly number[];
+}): string | null {
+  const tenth = input.frameNumber >= 10;
+  if (input.pinfall === 10) {
+    if (!tenth && input.rollNumber === 1) return strikeQuip(input.strikeStreak);
+    if (tenth) return "Nice strike!";
+    return null;
+  }
+  if (
+    input.rollNumber === 2 &&
+    input.firstBallPinfall != null &&
+    input.firstBallPinfall < 10 &&
+    input.firstBallPinfall + input.pinfall === 10
+  ) {
+    return "Spare! Nice pickup.";
+  }
+  const leave = leaveQuip(input.standingPins);
+  if (leave) return leave;
+  if (input.pinfall === 0) return "Gutter ball — shake it off.";
+  return null;
+}
+
+export function gameCompleteQuip(finalTotal: number | null): string | null {
+  if (finalTotal == null) return null;
+  if (finalTotal >= 300) return "Perfect game! Legendary.";
+  if (finalTotal >= 200) return "Huge game!";
+  if (finalTotal >= 100) return "Solid game!";
+  return "Game in the books.";
+}
+
+/**
+ * Completed-game Save is reassurance, not a write: every ball already
+ * persists offline at save time. The button refreshes the view, reports the
+ * final, and leaves the bowler inside the finished game.
+ */
+export function completedSaveNotice(finalTotal: number | null): string {
+  return finalTotal == null
+    ? "All balls already saved. Still in this game."
+    : `All balls already saved — final ${finalTotal}. Still in this game.`;
+}
+
+/** Persistent in-game Save banner; stays until navigation. In-memory only. */
+export function completedSaveBanner(
+  finalTotal: number | null,
+  savedAt: string,
+): string {
+  return finalTotal == null
+    ? `Saved ✓ · ${savedAt}`
+    : `Saved ✓ · Final ${finalTotal} · ${savedAt}`;
 }

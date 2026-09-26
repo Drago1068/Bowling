@@ -1,0 +1,26 @@
+O2/UX device observations (2026-09-24, APK BB4A1D11…, R3CY40E6FVJ).
+All interactions in-memory except the data-preserving install; no games
+created, nothing discarded, Qualifying Games stayed 23 throughout.
+
+1. Cold launch → Home. First hierarchy nodes: "Start New Game" (frozen bar,
+   above ScrollView), then "Bowling" title. Bar pinned above scroll content.
+2. Home metrics intact: Overall 185.8, 7 date(s), 2026-09-24 avg 247.5,
+   Rolling 255.8, Qualifying 23. Active rows excluded, as designed.
+3. Tap Start (frozen bar) → "You have 44 active game(s). Start a new game
+   anyway?" + "Confirm new game" + "Cancel". No game persisted on request.
+4. Tap Cancel → confirm cleared, list unchanged (still Game 1 first,
+   Qualifying 23). Request+cancel writes nothing.
+5. Swipe list up → "Start New Game" still first node while date-group content
+   moved. Frozen-while-scrolled confirmed structurally.
+6. Open Game 1 (8:11 AM, ball 1 = 0) → game-view bar shows "Home" +
+   "Previous games", no Start. Matches user's readout; entry rack offered.
+7. Tap "Previous games" (frozen bar) → label flips to "Hide previous games",
+   history list opens with discard footnote and per-game Open rows. Toggle
+   works repeatedly from the bar (live-state ref fix verified live).
+8. Tap "Home" (frozen bar) → back on Home, bar on top. State left clean.
+
+Stale-callback defect found and fixed during this package: the first build
+showed "Start a new game?" with activeCount 0 because the host-kept snapshot
+held a first-render closure over empty history. All frozen-bar callbacks now
+read through a live-state ref; label primitives still drive snapshot refresh.
+Rebuilt, reinstalled, re-verified (steps 3–4 above are post-fix).

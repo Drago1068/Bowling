@@ -71,6 +71,8 @@ export interface GameHistoryDetail extends GameHistoryEntry {
   status: "complete" | "active" | "repair";
   finalTotal: number | null;
   gameNumber: number;
+  /** Derived count of recorded roll facts; 0 means the game holds no observations. */
+  rollCount: number;
 }
 
 export type StandingDetailChoice =
@@ -181,6 +183,7 @@ export function listGameHistoryDetailed(db: SqliteDriver): GameHistoryDetail[] {
       status,
       finalTotal: status === "complete" ? sheet.finalTotal : null,
       gameNumber: gameNumberById.get(entry.id) ?? 1,
+      rollCount: facts.length,
     };
   });
 }
@@ -218,6 +221,55 @@ export function startGame(db: SqliteDriver, deviceId: string): string {
     });
   }
   return gameId;
+}
+
+/**
+ * Discard an empty game (zero recorded roll facts) via the established
+ * soft-delete path: Game plus its frames are archived atomically and DELETE
+ * envelopes enter the existing outbox, preserving the audit.
+ * A game holding any roll observation is refused — observations are never
+ * deleted. Use explicit per-game UI confirmation before calling.
+ */
+export function discardEmptyGame(
+  db: SqliteDriver,
+  deviceId: string,
+  gameId: string,
+): { ok: true } | { ok: false; message: string } {
+  const store = createEntityStore(db);
+  const game = store.get("Game", gameId) as {
+    id: string;
+    entity_version: number;
+  } | null;
+  if (!game) return { ok: false, message: "game not found" };
+  if (loadGameFacts(store, gameId).length > 0) {
+    return { ok: false, message: "game holds recorded balls and cannot be discarded" };
+  }
+  try {
+    const frames = (
+      store.list("Frame") as Array<{
+        id: string;
+        game_id: string;
+        entity_version: number;
+      }>
+    ).filter((f) => f.game_id === gameId);
+    applyLocalMutations(db, [
+      ...frames.map((frame) => ({
+        deviceId,
+        operation: "DELETE" as const,
+        entity: frame as unknown as CanonicalEntity,
+        expectedEntityVersion: frame.entity_version,
+      })),
+      {
+        deviceId,
+        operation: "DELETE" as const,
+        entity: game as unknown as CanonicalEntity,
+        expectedEntityVersion: game.entity_version,
+      },
+    ]);
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : String(err) };
+  }
 }
 
 export function nextLegalSlot(facts: readonly RollFact[]): NextRollSlot | null {

@@ -603,3 +603,502 @@ B2_STARTED=false
 ```
 
 Architecture Authority did not authorize an annotated B1 acceptance marker (ADR-007 forbids inventing a new tag/slice number; no B1 tag name was designated). B1 remains formally accepted and integrated on the default branch without a new tag.
+
+## B1 user lane trial outcome recording (2026-09-24, working tree only, no commit)
+
+```ini
+WORK_PACKAGE=BOWLING_B1_USER_LANE_TRIAL_OUTCOME_RECORDING
+RESULT=USER_REPORTED_PASS_WITH_TWO_BOUNDED_FINDINGS
+CANDIDATE_APK_SHA256=9141fb073c8a5a0a1c6a2659cc29c0cd57136a1e5685a091ac5e99f42ecbdba4
+INSTALLED_APK_VERIFIED=true
+DEVICE=R3CY40E6FVJ
+PACKAGE=com.drago1068.bowling
+LIVE_BRANCH=arch/001-domain-sync-foundation
+LIVE_HEAD_AT_RECORDING=11afbd4d5acb0d83afefc1c58cc8af27b9264527
+RACK_FIRST_ENTRY_AT_LANE_SPEED=PASS_USER_REPORTED
+TENTH_FRAME_INCL_10_9_1=PASS_USER_REPORTED
+HISTORY_DATE_AVERAGES_READABLE=PASS_USER_REPORTED
+EXISTING_GAMES_PRESERVED=PASS_USER_REPORTED
+APPLICATION_CODE_CHANGED=false
+COMMITS_CREATED=false
+PUSH_PERFORMED=false
+TAG_PUBLISHED=false
+NAS_ACCESSED=false
+B2_STARTED=false
+```
+
+User-reported verbatim outcomes (no inference from automated or agent device checks):
+- Rack-first entry at lane speed: Pass
+- Tenth-frame, incl. 10,9,1 behavior: Pass
+- History / date averages readable: Pass
+- Existing games preserved: Pass
+
+### Bounded finding O1 — date-header game count vs played count (user-reported, unverified)
+
+User reports for today's date only two games were played, but the app shows 4 total
+games with Games 1 and 2 showing Active and scores populating the 1st frame of each
+scoresheet. Recorded as a bounded data-visibility question, not as a contradiction of
+the four PASS statements above. Requires a bounded diagnosis (today's date-header list
+vs game identities/creation rows/active-vs-complete labeling) before any remediation
+is authorized. No code changed here.
+
+### Bounded finding O2 — navigation placement request (user-reported requirement)
+
+User requires application navigation buttons not at the bottom but at the top in a
+section frozen during scroll for ease of navigation. Recorded as a bounded usability
+requirement for a future remediation package. No code changed here.
+
+Gate fields in `PROJECT_STATUS.md` are intentionally left unchanged in this working
+tree (`B1_REAL_LANE_TRIAL=HOLD`, `FIELD_VALIDATION=PAUSED`) pending an explicit
+Architecture Authority gate flip. This recording does not close field acceptance,
+authorize remediation, authorize B2, tag, release, deploy, or access NAS.
+
+## O1 diagnosis (2026-09-24, authorized, docs only, no code change)
+
+```ini
+WORK_PACKAGE=BOWLING_O1_HISTORY_COUNT_DIAGNOSIS
+RESULT=DIAGNOSED_AS_DESIGNED_LISTING_WITH_UX_FOLLOW_ON
+LIVE_BRANCH=arch/001-domain-sync-foundation
+LIVE_HEAD=11afbd4d5acb0d83afefc1c58cc8af27b9264527
+DEVICE_OBSERVATION=LOCK_SCREEN_ONLY_NO_APP_STATE_READ
+DEVICE=R3CY40E6FVJ
+APPLICATION_CODE_CHANGED=false
+COMMITS_CREATED=false
+```
+
+Mechanism (all read-only inspection at `11afbd4`):
+
+- `src/scoring/session.ts:192-221` `startGame` persists a Game plus 10 Frames
+  immediately on tap. `apps/mobile/src/scoringPanel.tsx:132-144` `onNewGame`
+  calls it on every Start tap, then opens the new game. Each tap therefore
+  creates a durable game even if no ball is ever recorded.
+- `src/scoring/session.ts:172-185` maps any non-completed, non-repair sheet to
+  `status="active"` — including zero-roll `NOT_STARTED` sheets. Anything left
+  incomplete stays listed as Active by design; `computeHomeMetrics` and
+  `dateHeaderAverage` (`src/shellPresentation.ts:310-368`) exclude Active rows
+  from averages while still listing them in history.
+- `src/scoring/session.ts:153-171` numbers games chronologically per local
+  `dateKey`; `src/shellPresentation.ts:370-388` groups the Home list by that
+  same key. Games 1 and 2 under today are simply the two earliest-created
+  games stamped with today's local date — not a global game count.
+- Opening an Active game shows its real recorded balls, so a 1st frame with
+  scores in Games 1–2 means those games hold real roll facts (at least ball 1),
+  consistent with preserved observations, not fabricated scores.
+
+Diagnosis: 4 rows under today with Games 1–2 Active carrying 1st-frame scores
+is consistent with 4 Game entities created today — two left incomplete after at
+least ball 1 (or created then partially played) plus the two played-through
+games. This is the as-designed append-only listing, not evidence of invented
+games or a scoring error. Metrics behavior is correct to exclude the Active rows.
+
+What would overturn this: a Home-list readout (game number, status, score per
+row under today's header) showing scores on rows with no rolls, duplicate game
+identities, or `created_at` values outside today. Device was on the lock screen
+at diagnosis time so no app state was read; no taps, installs, force-stops, or
+DB access were performed.
+
+Follow-on (requires separate remediation authorization, not done here): confirm-
+before-new-game and a resume/discard affordance for Active games, so accidental
+Start taps do not accumulate Active rows. Never auto-delete Active games —
+that would destroy observations. O2 navigation request remains separate.
+
+### O1 closeout — user Home-list readout received (2026-09-24)
+
+User-reported readout for today's date header, verbatim:
+
+- Game 1: Active, 0 in first ball of first frame, 8:11am timestamp. Fully functional.
+- Game 2: Active, first frame score of 8-0, 8:12am timestamp. Fully functional.
+- Game 3: Complete, 195, 7:05pm timestamp.
+- Game 4: Complete, 300, 7:06pm timestamp.
+
+Assessment: readout confirms the diagnosis. Four Game entities exist under today:
+two morning partials (8:11am with ball 1 = 0 pending ball 2; 8:12am with frame 1
+8,0 open) correctly listed Active, plus the two played-through evening games
+correctly listed Complete with finals 195 and 300. Chronological per-date
+numbering, Active-vs-Complete labeling, first-frame scores reflecting real
+recorded balls, and exclusion of the Active rows from qualifying metrics are
+all as designed. No scores-without-rolls, no duplicate identities, no
+out-of-date rows. The user's "only two games played" refers to the two
+completed evening games; the morning partials are real entities with real
+facts, not invented rows.
+
+O1 is CLOSED as as-designed listing. No data repair indicated. The UX follow-on
+(confirm-before-new-game, resume/discard affordance) and O2 frozen-top
+navigation remain separately authorized remediation items, not done here.
+`PROJECT_STATUS.md` gate fields left unchanged pending explicit Authority flip.
+No code changed, no commit, no push, no tag, no release, no NAS, no B2.
+
+## Authority authorizations (2026-09-24, docs only, no implementation yet)
+
+```ini
+WORK_PACKAGE=BOWLING_AUTHORITY_FLIP_AND_UX_AUTHORIZATION
+B1_REAL_LANE_TRIAL=PASS
+B1_REAL_LANE_TRIAL_BLOCKER=NONE
+O1_HISTORY_COUNT=CLOSED_AS_DESIGNED
+O2_FROZEN_TOP_NAV_REMEDIATION=AUTHORIZED
+UX_CONFIRM_NEW_GAME_RESUME_DISCARD_REMEDIATION=AUTHORIZED
+UX_REMEDIATION_IMPLEMENTATION=NOT_STARTED
+CURRENT_GATE=B1_LANE_TRIAL_PASS_REMEDIATION_AUTHORIZED
+NEXT_ACTION=BOUNDED_O2_UX_REMEDIATION_IMPLEMENTATION
+APPLICATION_CODE_CHANGED=false
+COMMITS_CREATED=false
+PUSH_PERFORMED=false
+TAG_PUBLISHED=false
+NAS_ACCESSED=false
+B2_STARTED=false
+```
+
+Bounded scope for the authorized remediation package (not implemented here):
+
+- O2: move application navigation from the bottom to a frozen top section that
+  stays visible while scrolling. Presentation only; no scoring, persistence,
+  sync, or analysis changes.
+- UX: confirm-before-new-game (a Start tap must not silently persist another
+  Active game) plus a resume/discard affordance for Active games. Discard must
+  be explicit per game; never auto-delete observations; append-only correction
+  audit preserved.
+- Out of scope: scoring/validation changes, schema/sync changes, B2/B3
+  analysis, tags, releases, deployment, NAS.
+
+`FIELD_VALIDATION` remains `PAUSED` in status pending the remediation
+implementation and its device verification; only the B1 lane-trial gate was
+flipped to PASS on the user's recorded outcome.
+
+## O2/UX remediation implementation (2026-09-24, uncommitted, device verified)
+
+```ini
+WORK_PACKAGE=BOWLING_O2_UX_REMEDIATION_IMPLEMENTATION
+RESULT=READY_FOR_ACCEPTANCE_REVIEW
+BASELINE_HEAD=11afbd4d5acb0d83afefc1c58cc8af27b9264527
+BRANCH=arch/001-domain-sync-foundation
+ROOT_TESTS=205_OF_205_PASS
+TYPECHECK=PASS
+TYPECHECK_MOBILE=PASS
+SERVER_TESTS=SKIPPED_NO_LOCAL_POSTGRES_ECONNREFUSED_55433
+CANDIDATE_APK_SHA256=BB4A1D11FB4C6205F740830542923EF983F2EEBAF32FB6345A0D99ED2F22513C
+PRIOR_APK_SHA256=9141fb073c8a5a0a1c6a2659cc29c0cd57136a1e5685a091ac5e99f42ecbdba4
+INSTALL=adb_install_-r_Success
+SIGNING_UNCHANGED=true
+FIRST_INSTALL_TIME_PRESERVED=2026-09-07_12:13:15
+DATA_PRESERVED=true
+QUALIFYING_GAMES_BEFORE=23
+QUALIFYING_GAMES_AFTER=23
+DEVICE=R3CY40E6FVJ
+DEVICE_ACCEPTANCE=PASS_AGENT_OPERATED
+EXISTING_GAMES_EDITED=false
+GAMES_CREATED_BY_VERIFICATION=false
+GAMES_DISCARDED_BY_VERIFICATION=false
+OBSERVATIONS=docs/evidence/o2-ux-device-observations.txt
+COMMIT_AUTHORIZED=false
+PUSH_AUTHORIZED=false
+TAG_AUTHORIZED=false
+B2_STARTED=false
+NAS_ACCESSED=false
+```
+
+### Changed (presentation + UX affordances only)
+
+- `apps/mobile/App.tsx`: frozen nav bar rendered above the outer ScrollView
+  from a panel-published snapshot (`TopNavModel`), refreshed only when visible
+  primitives change (`topNavSnapshotEqual` guard — no render loop).
+- `apps/mobile/src/scoringPanel.tsx`: `TopNavBar` (Home / Previous-games
+  toggle / Done / Start, plus inline new-game confirm); bottom `actionColumn`
+  removed; Start always requires explicit Confirm; Active zero-roll rows offer
+  two-tap Discard; games with rolls show resume-only with an explanatory hint.
+  Frozen-bar callbacks read through a live-state ref so a host-kept snapshot
+  never acts on stale rendered state (defect found on first build by the
+  active-count notice reading 0, fixed, rebuilt, re-verified with 44 actives).
+- `src/shellPresentation.ts`: `topNavActions`, `historyToggleLabel`,
+  `discardableGame` (unknown counts fail closed), `newGameConfirmNotice`;
+  `HomeHistoryGame.rollCount?` additive optional.
+- `src/scoring/session.ts`: derived `GameHistoryDetail.rollCount`;
+  `discardEmptyGame` — atomic soft-delete of Game + frames via the existing
+  `applyLocalMutations`/`DELETE` path; refuses any game with roll facts,
+  unknown ids, and mid-transaction failures without partial writes.
+- `tests/o2.ux-remediation.test.ts`: 7 new gates (nav ordering, labels,
+  confirm copy, discardable matrix, discard atomics, refusal preservation,
+  unknown-id safety).
+
+### Not changed
+
+Scoring, validation, rack rules, persistence schema, sync contracts, analysis,
+dependencies. No migration. Server suite untouched (no Postgres locally; all
+41 fail at connect in setup, unrelated to this diff).
+
+## Visual polish + Save + Advanced placement follow-on (2026-09-24, uncommitted, device verified)
+
+```ini
+WORK_PACKAGE=BOWLING_POLISH_SAVE_ADVANCED_FOLLOW_ON
+RESULT=READY_FOR_USER_EYES_REVIEW
+ROOT_TESTS=206_OF_206_PASS
+TYPECHECK=PASS
+TYPECHECK_MOBILE=PASS
+SERVER_TESTS=SKIPPED_NO_LOCAL_POSTGRES_ECONNREFUSED_55433
+CANDIDATE_APK_SHA256=1B6E8AC9FB5185E20F8181E9AB32D8EC50BB45831EBCD58417C8A3D2F22513C
+PRIOR_APK_SHA256=BB4A1D11FB4C6205F740830542923EF983F2EEBAF32FB6345A0D99ED2F22513C
+INSTALL=adb_install_-r_Success
+FIRST_INSTALL_TIME_PRESERVED=2026-09-07_12:13:15
+DATA_PRESERVED=true
+DEVICE=R3CY40E6FVJ
+DEVICE_ACCEPTANCE=PASS_AGENT_OPERATED_WITH_TWO_USER_EYES_ITEMS_PENDING
+OBSERVATIONS=docs/evidence/o3-polish-device-observations.txt
+USER_BOWLED_DURING_WINDOW=true
+QUALIFYING_23_TO_25_FROM_USER_PLAY=true
+COMMIT_AUTHORIZED=false
+PUSH_AUTHORIZED=false
+B2_STARTED=false
+NAS_ACCESSED=false
+```
+
+### Changed (presentation only)
+
+- Frozen bar: white card with green border, compact 13px labels, extra top
+  separation (`frozenNav` paddingTop 16) so it reads — and taps — as app
+  chrome, not phone status UI. Touch-zone defect (bar-center taps swallowed
+  near the status area) found during verification and fixed in this build.
+- `AppHeader`: dark-green band, white title, gold pin-dot motif on Home and
+  game screens.
+- Completed-game "Save game": refreshes the finished view, reports the final,
+  stays in the game. Zero canonical/outbox writes by design — every ball
+  already persists at entry; `completedSaveNotice` helper tested.
+- Advanced harness: rendered only on Home (bottom, still collapsed by
+  default); hidden during game entry. Loading/failure states still expose it
+  (no snapshot yet → shown), so recovery controls stay reachable.
+- `TopNavModel.homeOpen` added so the host can place Advanced.
+
+### Verified on device / pending your eyes
+
+- Verified: bar pinned while scrolled, toggle + Home from bar, Save flow on a
+  completed 203 (notice, final unchanged, stayed), Advanced present on Home /
+  absent in game view, discard affordance only on the empty row, data intact.
+- Pending your eyes (stopped touching the phone when you picked it up):
+  the new look itself, and center-tap feel on the raised bar.
+
+## Polish round 2 — strip, chips, Save banner, dark lane theme (2026-09-24, uncommitted, device verified where possible)
+
+```ini
+WORK_PACKAGE=BOWLING_POLISH_ROUND2_STRIP_CHIPS_SAVE_DARK
+RESULT=READY_FOR_USER_EYES_REVIEW
+ROOT_TESTS=206_OF_206_PASS
+TYPECHECK=PASS
+TYPECHECK_MOBILE=PASS
+SERVER_TESTS=SKIPPED_NO_LOCAL_POSTGRES_ECONNREFUSED_55433
+CANDIDATE_APK_SHA256=DDCDAE1A37A36D77BE0F15A2BB0ED36AE33D1A54F34C36CFBF3759C9593EE92F
+PRIOR_APK_SHA256=1B6E8AC9FB5185E20F8181E9AB32D8EC50BB45831EBCD58417C8A3D2F80EC1CD
+INSTALL=adb_install_-r_Success
+FIRST_INSTALL_TIME_PRESERVED=2026-09-07_12:13:15
+DATA_PRESERVED=true
+DEVICE=R3CY40E6FVJ
+DEVICE_ACCEPTANCE=PASS_AGENT_OPERATED_WITH_USER_EYES_ITEMS_PENDING
+GAMES_CREATED_BY_VERIFICATION=false
+GAMES_EDITED_BY_VERIFICATION=false
+GAMES_DISCARDED_BY_VERIFICATION=false
+OBSERVATIONS=docs/evidence/o5-polish2-device-observations.txt
+COMMIT_AUTHORIZED=false
+PUSH_AUTHORIZED=false
+B2_STARTED=false
+NAS_ACCESSED=false
+```
+
+### Changed (presentation only)
+
+- Header band + pin dots removed per user vote; plain title back.
+- Nav buttons are compact natural-width chips per user vote; confirm-box
+  buttons match.
+- Confirm copy no longer renders twice (frozen bar owns it while confirming).
+- Save: persistent `Saved ✓ · Final N · time` banner until navigation
+  (`completedSaveBanner` helper tested); still zero writes by design.
+- Dark lane theme on the entry screen only: navy scorecard strip with gold
+  totals, dark numbered pin circles, standing pin white with red stripe,
+  dark X/G/✓// + count pad. History/metrics untouched.
+- Foul/Miss aliases deliberately not added: Gutter already records pinfall 0.
+
+### Pending user eyes
+
+White/red standing-pin visual, raised-bar tap feel, and the overall look —
+device touching stopped when the phone went to the user's messaging app.
+## Dedicated Advanced screen (2026-09-24, uncommitted, device verified)
+
+```ini
+WORK_PACKAGE=BOWLING_ADVANCED_DEDICATED_SCREEN
+RESULT=READY_FOR_USER_EYES_REVIEW
+ROOT_TESTS=212_OF_212_PASS
+TYPECHECK=PASS
+TYPECHECK_MOBILE=PASS
+SERVER_TESTS=SKIPPED_NO_LOCAL_POSTGRES_ECONNREFUSED_55433
+CANDIDATE_APK_SHA256=DD98F698BAD3A18F91CC7711D6A4D52BE3F8C7FC2AB9AA37221C040B6562B540
+PRIOR_APK_SHA256=F21D0F375F3FAA66AFF8C51C74828B7FDDBF33524FEB22C9FD1B1460FDCABCEC
+INSTALL=adb_install_-r_Success
+FIRST_INSTALL_TIME_PRESERVED=2026-09-07_12:13:15
+DATA_PRESERVED=true
+DEVICE=R3CY40E6FVJ
+DEVICE_ACCEPTANCE=PASS_AGENT_OPERATED
+GAMES_CREATED_BY_VERIFICATION=false
+OBSERVATIONS=docs/evidence/o9-advanced-device-observations.txt
+COMMIT_AUTHORIZED=false
+PUSH_AUTHORIZED=false
+B2_STARTED=false
+NAS_ACCESSED=false
+```
+
+### Changed (presentation only)
+
+- Landing Advanced chip navigates to a dedicated Advanced screen; the
+  App-level harness JSX is deleted (Row/Button/dead disclosure removed).
+- Diagnostics render from a one-way host snapshot (`AdvancedModel`); all
+  recovery actions preserved. Loading states keep a fallback message.
+- `AppScreen` gains `advanced` (frozen bar offers Home back).
+
+## Home landing redesign (2026-09-24, uncommitted, device verified)
+
+```ini
+WORK_PACKAGE=BOWLING_HOME_LANDING_REDESIGN
+RESULT=READY_FOR_USER_EYES_REVIEW
+ROOT_TESTS=207_OF_207_PASS
+TYPECHECK=PASS
+TYPECHECK_MOBILE=PASS
+SERVER_TESTS=SKIPPED_NO_LOCAL_POSTGRES_ECONNREFUSED_55433
+CANDIDATE_APK_SHA256=F21D0F375F3FAA66AFF8C51C74828B7FDDBF33524FEB22C9FD1B1460FDCABCEC
+PRIOR_APK_SHA256=0CFE45ABB735A593FB87100C68D03706EF8CAB9C3A2AD70014D631F97DB6C83A
+INSTALL=adb_install_-r_Success
+FIRST_INSTALL_TIME_PRESERVED=2026-09-07_12:13:15
+DATA_PRESERVED=true
+DEVICE=R3CY40E6FVJ
+DEVICE_ACCEPTANCE=PASS_AGENT_OPERATED
+GAMES_CREATED_BY_VERIFICATION=false
+OBSERVATIONS=docs/evidence/o7-landing-device-observations.txt
+COMMIT_AUTHORIZED=false
+PUSH_AUTHORIZED=false
+B2_STARTED=false
+NAS_ACCESSED=false
+```
+
+### Changed (presentation only)
+
+- Home is a landing screen: navy hero (title, tagline, live overall +
+  qualifying chip), full-width New Game, History/Analysis/Advanced chips.
+- History and Analysis are own screens (frozen bar offers Home back).
+  Analysis is honest: B2/B3 pending copy plus qualifying + overall average
+  only — no Strike %/Spare %/leaves claimed.
+- Advanced chip expands the harness below; the duplicate App disclosure
+  hides on landing until opened. Game entry still never shows Advanced.
+- `topNavActions` now takes `screen` (landing/history/analysis/game);
+  `analysisAvailableSummary` + `ANALYSIS_PENDING_COPY` helpers tested.
+
+## Polish round 3 — fit-to-screen + title removal (2026-09-24, uncommitted, device verified)
+
+```ini
+WORK_PACKAGE=BOWLING_POLISH_ROUND3_FIT_TITLE
+RESULT=READY_FOR_USER_EYES_REVIEW
+ROOT_TESTS=206_OF_206_PASS
+TYPECHECK=PASS
+TYPECHECK_MOBILE=PASS
+SERVER_TESTS=SKIPPED_NO_LOCAL_POSTGRES_ECONNREFUSED_55433
+CANDIDATE_APK_SHA256=0CFE45ABB735A593FB87100C68D03706EF8CAB9C3A2AD70014D631F97DB6C83A
+PRIOR_APK_SHA256=DDCDAE1A37A36D77BE0F15A2BB0ED36AE33D1A54F34C36CFBF3759C9593EE92F
+INSTALL=adb_install_-r_Success
+FIRST_INSTALL_TIME_PRESERVED=2026-09-07_12:13:15
+DATA_PRESERVED=true
+DEVICE=R3CY40E6FVJ
+DEVICE_ACCEPTANCE=PASS_AGENT_OPERATED
+GAMES_CREATED_BY_VERIFICATION=false
+OBSERVATIONS=docs/evidence/o6-fit-device-observations.txt
+COMMIT_AUTHORIZED=false
+PUSH_AUTHORIZED=false
+B2_STARTED=false
+NAS_ACCESSED=false
+```
+
+### Changed (presentation only)
+
+- Game scoring screen drops the "Bowling" title (Home keeps it).
+- Pins 44→36px with tighter rack/card gaps and shorter entry buttons; the
+  full entry screen now fits one viewport with no scroll (screenshot
+  verified: frame strip + rack + X/G/✓// + Fix a ball all visible).
+
+## Lane commentary quips (2026-09-24, implemented, unit-tested, uncommitted)
+
+```ini
+WORK_PACKAGE=BOWLING_LANE_COMMENTARY_QUIPS
+RESULT=READY_FOR_USER_EYES_REVIEW
+ROOT_TESTS=212_OF_212_PASS_WITH_6_NEW_QUIP_GATES
+TYPECHECK=PASS
+TYPECHECK_MOBILE=PASS
+ON_DEVICE_QUIP_FIRING=NOT_VERIFIED_NO_BALLS_RECORDED_ON_DEVICE
+COMMIT_AUTHORIZED=false
+PUSH_AUTHORIZED=false
+B2_STARTED=false
+NAS_ACCESSED=false
+```
+
+### Changed (presentation copy only; no scoring changes)
+
+- `strikeQuip` (strike → Double → Turkey → runaway count), `leaveQuip`
+  (single pin → "You forgot one."; famous splits incl. 7-10 → "Nice split."),
+  `strikeStreakCount`, `ballSaveQuip` (priority: strike, spare, leave,
+  gutter), `gameCompleteQuip` (tiers incl. 300 "Perfect game! Legendary.").
+- Wired into fresh-save paths only (`saveDelivery`, count-only save) — Fix
+  corrections never quip. Split/single detection uses recorded standing
+  detail only; unknown detail yields nothing (never invented).
+- Completed games show the tier quip under the final.
+- One test fixture corrected during development (spare + leftover pin cannot
+  coexist; implementation priority was already correct).
+
+## SVG artwork — hero illustration + rack pins (2026-09-24, uncommitted, device verified)
+
+```ini
+WORK_PACKAGE=BOWLING_SVG_ARTWORK
+DEPENDENCY_ADDED=react-native-svg
+DEPENDENCY_APPROVAL=USER_APPROVED_SVG_LIBRARY
+BUNDLE_MODULES=672_TO_785
+ROOT_TESTS=212_OF_212_PASS
+TYPECHECK=PASS
+TYPECHECK_MOBILE=PASS
+CANDIDATE_APK_SHA256=C4EDE88AE0C9AACAB783D5541C66AC9DD9BEF6906D8B3DFE0E3DA73FFEB92A57
+DEVICE=R3CY40E6FVJ
+DEVICE_ACCEPTANCE=PASS_AGENT_OPERATED_SCREENSHOTS
+COMMIT_AUTHORIZED=false
+PUSH_AUTHORIZED=false
+B2_STARTED=false
+NAS_ACCESSED=false
+```
+
+### Changed (presentation only)
+
+- `apps/mobile/src/artwork.tsx` (new): hand-authored vector art, no network
+  assets, no copyright exposure. `HeroArtSvg` (gradient ball, striped pins,
+  speed streaks, lane line, sparkles); `RackPinSvg` (standing = white pin
+  with red stripes + number; down = dark numbered circle, Lanetalk language).
+- Rack Pressables render SVG with aligned bottoms; old View-circle pin
+  components and styles removed.
+- Hero pin clipping found on first screenshot (pins past viewBox edge) and
+  fixed by compressing the fan.
+- Answers "what is required to elevate graphics": vector illustration needs
+  a renderer (this dependency); further elevation paths are custom fonts,
+  more illustration time, or user-supplied raster art. Photo-grade 3D art is
+  out of reach in code.
+
+## Layout fill + Advanced-screen tail (2026-09-24, uncommitted, partial device verification)
+
+```ini
+WORK_PACKAGE=BOWLING_LAYOUT_FILL_TAIL
+CANDIDATE_APK_SHA256=DF68DCC35F316711A558D180F3B7C4356ADCD38B7A03EF0FF3633B5B405B0C3E
+ROOT_TESTS=212_OF_212_PASS
+TYPECHECK=PASS
+TYPECHECK_MOBILE=PASS
+DEVICE_TAIL_VERIFICATION=BLOCKED_SECURE_LOCK
+COMMIT_AUTHORIZED=false
+PUSH_AUTHORIZED=false
+B2_STARTED=false
+NAS_ACCESSED=false
+```
+
+### Changed (presentation only)
+
+- Root cause of the home gap: outer ScrollView content carried
+  `paddingBottom: 96` of dead space. Reduced to 28.
+- Removed the phantom empty frozen-nav wrapper on landing.
+- Guarded `onLayout`-adaptive landing min-height (converges; no loops).
+- Device tail verification blocked when the phone fell back to secure lock;
+  no taps attempted while locked. Installed + hash-verified only.
+- OBSERVATIONS=docs/evidence/o10-layout-device-observations.txt

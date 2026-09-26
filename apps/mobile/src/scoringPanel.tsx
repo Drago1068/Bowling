@@ -1,7 +1,16 @@
-import { useEffect, useMemo, useState } from "react";
-import { Pressable, ScrollView, Text, View, StyleSheet } from "react-native";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  Dimensions,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+  StyleSheet,
+} from "react-native";
+import { HeroArtSvg, RackPinSvg } from "./artwork.tsx";
 import {
   correctRollWithStanding,
+  discardEmptyGame,
   listGameHistoryDetailed,
   loadScoringView,
   pinfallLegal,
@@ -15,17 +24,27 @@ import {
   type SqliteDriver,
 } from "../../../src/portable.ts";
 import {
+  ANALYSIS_PENDING_COPY,
   INITIAL_SHELL_DISCLOSURES,
   METRIC_RANGE_OPTIONS,
   METRICS_INSUFFICIENT,
   STORAGE_UNAVAILABLE_NOTICE,
+  analysisAvailableSummary,
   ballCellMark,
+  ballSaveQuip,
+  completedSaveBanner,
+  completedSaveNotice,
+  gameCompleteQuip,
+  strikeStreakCount,
   computeHomeMetrics,
   defaultFixRollId,
+  discardableGame,
   fixModeLayout,
   frameSlotCount,
   groupHistoryByDate,
+  historyToggleLabel,
   humanizeNextBallRejection,
+  newGameConfirmNotice,
   ordinalBall,
   scoringActionsAllowed,
   scoringPad,
@@ -34,23 +53,63 @@ import {
   spareControlEnabled,
   strikeControlEnabled,
   toggleDisclosure,
+  topNavActions,
+  type AppScreen,
   type MetricRangeId,
+  type TopNavActionId,
 } from "../../../src/shellPresentation.ts";
 
 const PIN_VALUES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const;
 const RACK_ROWS = [[7, 8, 9, 10], [4, 5, 6], [2, 3], [1]] as const;
+/** Floor so the landing card is never shorter than typical content. */
+const STATIC_LANDING_MIN = Math.max(0, Dimensions.get("window").height - 200);
+
+/** Snapshot driving the frozen top navigation bar (rendered above the scroll content). */
+export type TopNavModel = {
+  actions: TopNavActionId[];
+  homeOpen: boolean;
+  historyOpen: boolean;
+  confirmNewGame: boolean;
+  confirmNotice: string;
+  disabled: boolean;
+  onGoHome: () => void;
+  onToggleHistory: () => void;
+  onRequestNewGame: () => void;
+  onConfirmNewGame: () => void;
+  onCancelNewGame: () => void;
+};
+
+export function topNavSnapshotEqual(a: TopNavModel | null, b: TopNavModel | null): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  return (
+    a.actions.join(",") === b.actions.join(",") &&
+    a.homeOpen === b.homeOpen &&
+    a.historyOpen === b.historyOpen &&
+    a.confirmNewGame === b.confirmNewGame &&
+    a.confirmNotice === b.confirmNotice &&
+    a.disabled === b.disabled
+  );
+}
 
 export function ScoringPanel(props: {
   driver: SqliteDriver | null;
   deviceId: string | null;
   enabled: boolean;
   reloadToken: string;
+  /** When provided, the host renders the frozen bar and the panel omits in-card nav. */
+  onTopNav?: (model: TopNavModel | null) => void;
+  /** Live diagnostics snapshot for the dedicated Advanced screen (one-way). */
+  advanced?: AdvancedModel | null;
 }) {
   const [view, setView] = useState<ScoringView | null>(null);
   const [history, setHistory] = useState<GameHistoryDetail[]>([]);
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
   const [sessionReady, setSessionReady] = useState(false);
   const [homeOpen, setHomeOpen] = useState(true);
+  const [homeSection, setHomeSection] = useState<
+    "landing" | "history" | "analysis" | "advanced"
+  >("landing");
   const [selectedRollId, setSelectedRollId] = useState<string | null>(null);
   const [fixMode, setFixMode] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(
@@ -58,6 +117,16 @@ export function ScoringPanel(props: {
   );
   const [metricsRange, setMetricsRange] = useState<MetricRangeId>("all");
   const [notice, setNotice] = useState("");
+  const [confirmNewGame, setConfirmNewGame] = useState(false);
+  const [confirmDiscardId, setConfirmDiscardId] = useState<string | null>(null);
+  const [savedAt, setSavedAt] = useState<string | null>(null);
+  const [landingMin, setLandingMin] = useState(STATIC_LANDING_MIN);
+  /**
+   * The frozen host bar keeps the latest published snapshot; callbacks below
+   * read through this ref so they never act on stale rendered state.
+   */
+  const liveStateRef = useRef({ history, historyOpen });
+  liveStateRef.current = { history, historyOpen };
   const [draftStanding, setDraftStanding] = useState<number[]>([]);
   const [standingTouched, setStandingTouched] = useState(false);
   const [draftPinfall, setDraftPinfall] = useState<number | null>(null);
@@ -77,6 +146,7 @@ export function ScoringPanel(props: {
     if (!sessionReady) {
       setSessionReady(true);
       setHomeOpen(true);
+      setHomeSection("landing");
       setView(null);
       setSelectedGameId(null);
       setNotice("");
@@ -107,9 +177,13 @@ export function ScoringPanel(props: {
 
   const onGoHome = () => {
     setHomeOpen(true);
+    setHomeSection("landing");
     setFixMode(false);
     setSelectedRollId(null);
     setHistoryOpen(false);
+    setConfirmNewGame(false);
+    setConfirmDiscardId(null);
+    setSavedAt(null);
     clearDraft();
     if (props.driver) setHistory(listGameHistoryDetailed(props.driver));
     setNotice("");
@@ -117,7 +191,10 @@ export function ScoringPanel(props: {
 
   const onToggleHistory = () => {
     const next = toggleDisclosure(
-      { historyOpen, diagnosticsOpen: false },
+      {
+        historyOpen: liveStateRef.current.historyOpen,
+        diagnosticsOpen: false,
+      },
       "historyOpen",
     );
     setHistoryOpen(next.historyOpen);
@@ -129,7 +206,17 @@ export function ScoringPanel(props: {
     setSelectedGameId((current) => selectionAfterDisclosure(current, next));
   };
 
-  const onNewGame = () => {
+  const onRequestNewGame = () => {
+    if (!props.driver || !props.deviceId) return;
+    setConfirmDiscardId(null);
+    setConfirmNewGame(true);
+    const activeCount = liveStateRef.current.history.filter(
+      (g) => g.status === "active",
+    ).length;
+    setNotice(newGameConfirmNotice(activeCount));
+  };
+
+  const onConfirmNewGame = () => {
     if (!props.driver || !props.deviceId) return;
     const gameId = startGame(props.driver, props.deviceId);
     setSelectedRollId(null);
@@ -139,8 +226,67 @@ export function ScoringPanel(props: {
     setHomeOpen(false);
     setSelectedGameId(gameId);
     setSessionReady(true);
+    setConfirmNewGame(false);
+    setSavedAt(null);
     refresh(gameId);
     setNotice("Tap standing pins, then ✓ — or use X / G / / when legal.");
+  };
+
+  const onCancelNewGame = () => {
+    setConfirmNewGame(false);
+    setNotice("");
+  };
+
+  /**
+   * Completed-game Save: reassurance, not a write. Every ball already
+   * persists offline at save time, so this only refreshes the finished view,
+   * reports the final, and stays inside the game. No canonical/outbox writes.
+   */
+  const onSaveGame = () => {
+    if (!props.driver || !view?.gameId) return;
+    const next = loadScoringView(props.driver, view.gameId);
+    setView(next);
+    setHistory(listGameHistoryDetailed(props.driver));
+    const finalTotal = next.sheet?.finalTotal ?? null;
+    setSavedAt(
+      new Date().toLocaleTimeString(undefined, {
+        hour: "numeric",
+        minute: "2-digit",
+      }),
+    );
+    setNotice(completedSaveNotice(finalTotal));
+  };
+  const savedBanner =
+    savedAt !== null
+      ? completedSaveBanner(view?.sheet?.finalTotal ?? null, savedAt)
+      : null;
+
+  const onRequestDiscard = (gameId: string) => {
+    setConfirmNewGame(false);
+    setConfirmDiscardId(gameId);
+    setNotice("Discard this empty game? It holds no recorded balls.");
+  };
+
+  const onCancelDiscard = () => {
+    setConfirmDiscardId(null);
+    setNotice("");
+  };
+
+  const onConfirmDiscard = (gameId: string) => {
+    if (!props.driver || !props.deviceId) return;
+    const result = discardEmptyGame(props.driver, props.deviceId, gameId);
+    setConfirmDiscardId(null);
+    if (!result.ok) {
+      setNotice(`Could not discard: ${result.message}.`);
+      return;
+    }
+    if (selectedGameId === gameId) {
+      setSelectedGameId(null);
+      setView(null);
+      setHomeOpen(true);
+    }
+    setHistory(listGameHistoryDetailed(props.driver));
+    setNotice("Empty game discarded. Recorded balls were not touched.");
   };
 
   const onOpenGame = (gameId: string) => {
@@ -150,6 +296,9 @@ export function ScoringPanel(props: {
     clearDraft();
     setHistoryOpen(false);
     setHomeOpen(false);
+    setConfirmNewGame(false);
+    setConfirmDiscardId(null);
+    setSavedAt(null);
     setSelectedGameId(gameId);
     const next = loadScoringView(props.driver, gameId);
     setView(next);
@@ -318,15 +467,38 @@ export function ScoringPanel(props: {
       clearDraft();
       const done =
         next.sheet?.status === "COMPLETED" && next.sheet.finalTotal != null;
-      setNotice(
-        done
-          ? `Saved. Game complete · ${next.sheet!.finalTotal}.`
-          : `Saved: pins ${pinfall}; standing ${
-              standing.length ? standing.join(", ") : "none"
-            }. Next: Frame ${next.next?.frame_number ?? "—"} · ${
-              next.next ? ordinalBall(next.next.roll_number) : ""
-            } ball.`,
-      );
+      const firstBall =
+        slot.roll_number === 2
+          ? (view.rolls.find(
+              (r) => r.frame_number === slot.frame_number && r.roll_number === 1,
+            )?.pinfall ?? null)
+          : null;
+      const streak =
+        slot.frame_number < 10 && slot.roll_number === 1 && pinfall === 10
+          ? strikeStreakCount(
+              (next.sheet?.frames ?? []).map((f) => ({
+                frameNumber: f.frame_number,
+                isStrike: f.isStrike,
+              })),
+              slot.frame_number,
+            )
+          : 0;
+      const quip = ballSaveQuip({
+        frameNumber: slot.frame_number,
+        rollNumber: slot.roll_number,
+        pinfall,
+        firstBallPinfall: firstBall,
+        strikeStreak: streak,
+        standingPins: standing,
+      });
+      const base = done
+        ? `Saved. Game complete · ${next.sheet!.finalTotal}.`
+        : `Saved: pins ${pinfall}; standing ${
+            standing.length ? standing.join(", ") : "none"
+          }. Next: Frame ${next.next?.frame_number ?? "—"} · ${
+            next.next ? ordinalBall(next.next.roll_number) : ""
+          } ball.`;
+      setNotice(quip ? `${base} ${quip}` : base);
     } else {
       setNotice(humanizeNextBallRejection(result.message));
     }
@@ -377,7 +549,32 @@ export function ScoringPanel(props: {
     setHistory(listGameHistoryDetailed(props.driver));
     if (result.ok) {
       clearDraft();
-      setNotice(`Saved: pins ${draftPinfall}. Pin detail not recorded (prior rack unknown).`);
+      const firstBall =
+        slot.roll_number === 2
+          ? (view.rolls.find(
+              (r) => r.frame_number === slot.frame_number && r.roll_number === 1,
+            )?.pinfall ?? null)
+          : null;
+      const streak =
+        slot.frame_number < 10 && slot.roll_number === 1 && draftPinfall === 10
+          ? strikeStreakCount(
+              (next.sheet?.frames ?? []).map((f) => ({
+                frameNumber: f.frame_number,
+                isStrike: f.isStrike,
+              })),
+              slot.frame_number,
+            )
+          : 0;
+      const quip = ballSaveQuip({
+        frameNumber: slot.frame_number,
+        rollNumber: slot.roll_number,
+        pinfall: draftPinfall,
+        firstBallPinfall: firstBall,
+        strikeStreak: streak,
+        standingPins: [],
+      });
+      const base = `Saved: pins ${draftPinfall}. Pin detail not recorded (prior rack unknown).`;
+      setNotice(quip ? `${base} ${quip}` : base);
     } else {
       setNotice(humanizeNextBallRejection(result.message));
     }
@@ -418,6 +615,9 @@ export function ScoringPanel(props: {
     history.find((entry) => entry.id === selectedGameId)?.label ?? null;
   const completed =
     view?.sheet?.status === "COMPLETED" && view.sheet.finalTotal !== null;
+  const completeQuip = completed
+    ? gameCompleteQuip(view?.sheet?.finalTotal ?? null)
+    : null;
   const needsRepair = view?.sheet?.status === "DOMAIN_INVALID_REQUIRING_REPAIR";
   const empty = !view?.gameId && !homeOpen;
   const selectedRoll = view?.rolls.find((r) => r.entity_id === selectedRollId);
@@ -431,22 +631,177 @@ export function ScoringPanel(props: {
   const metrics = computeHomeMetrics(history, metricsRange);
   const dateGroups = groupHistoryByDate(history, metricsRange);
 
-  if (homeOpen) {
+  const screen: AppScreen = !homeOpen ? "game" : homeSection;
+  const topNavModel = useMemo<TopNavModel>(
+    () => ({
+      actions: topNavActions({
+        screen,
+        historyOpen,
+        completed,
+      }),
+      homeOpen,
+      historyOpen,
+      confirmNewGame,
+      confirmNotice: notice,
+      disabled,
+      onGoHome,
+      onToggleHistory,
+      onRequestNewGame,
+      onConfirmNewGame,
+      onCancelNewGame,
+    }),
+    [
+      screen,
+      homeOpen,
+      historyOpen,
+      completed,
+      confirmNewGame,
+      notice,
+      disabled,
+      onGoHome,
+      onToggleHistory,
+      onRequestNewGame,
+      onConfirmNewGame,
+      onCancelNewGame,
+    ],
+  );
+
+  useEffect(() => {
+    props.onTopNav?.(topNavModel);
+  }, [props.onTopNav, topNavModel]);
+
+  useEffect(() => () => props.onTopNav?.(null), [props.onTopNav]);
+
+  if (homeOpen && homeSection === "landing") {
     return (
-      <View style={styles.card}>
-        <Text style={styles.title}>Bowling</Text>
-        <Text style={styles.lead}>
-          Score history by date. Opening a game does not create a new one.
-        </Text>
+      <View
+        style={[styles.card, styles.landingCard, { minHeight: landingMin }]}
+        onLayout={(e) => {
+          const { height, y } = e.nativeEvent.layout;
+          const target = Math.max(
+            STATIC_LANDING_MIN,
+            Dimensions.get("window").height - y - 120,
+          );
+          if (target > height + 1) setLandingMin(target);
+        }}
+      >
+        {props.onTopNav ? null : <TopNavBar model={topNavModel} />}
+        <View style={styles.heroCard}>
+          <Text style={styles.heroTitle}>Bowling</Text>
+          <HeroArtSvg />
+          <Text style={styles.heroTag}>Score at the lane. Offline first.</Text>
+          {metrics.enough && metrics.overallAverage != null ? (
+            <Text style={styles.heroStats}>
+              Overall {metrics.overallAverage} · {metrics.qualifyingGames}{" "}
+              qualifying
+            </Text>
+          ) : null}
+        </View>
         {leftoverUnavailable ? (
           <Text style={styles.repair}>{STORAGE_UNAVAILABLE_NOTICE}</Text>
         ) : null}
-        {notice && !leftoverUnavailable ? (
+        {notice && !confirmNewGame && !leftoverUnavailable ? (
+          <Text style={styles.note}>{notice}</Text>
+        ) : null}
+        <Pressable
+          style={[styles.button, disabled ? styles.buttonDisabled : null]}
+          disabled={disabled}
+          onPress={onRequestNewGame}
+          accessibilityRole="button"
+          accessibilityLabel="Start a new game"
+        >
+          <Text style={styles.buttonLabel}>New Game</Text>
+        </Pressable>
+        {confirmNewGame ? (
+          <View style={styles.confirmBox}>
+            <Text style={styles.body}>
+              {notice || "Start a new game?"}
+            </Text>
+            <View style={styles.topNavRow}>
+              <Pressable
+                style={[styles.button, styles.topNavBtn]}
+                disabled={disabled}
+                onPress={onConfirmNewGame}
+                accessibilityRole="button"
+                accessibilityLabel="Confirm new game"
+              >
+                <Text style={styles.topNavLabelPrimary}>Confirm</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.secondary, styles.topNavBtn]}
+                onPress={onCancelNewGame}
+                accessibilityRole="button"
+                accessibilityLabel="Cancel new game"
+              >
+                <Text style={styles.topNavLabel}>Cancel</Text>
+              </Pressable>
+            </View>
+          </View>
+        ) : null}
+        <View style={styles.bottomBar}>
+          <Pressable
+            style={[styles.secondary, styles.bottomBarBtn]}
+            disabled={disabled}
+            onPress={() => setHomeSection("history")}
+            accessibilityRole="button"
+            accessibilityLabel="Open history"
+          >
+            <Text style={styles.secondaryLabel}>History</Text>
+          </Pressable>
+          <Pressable
+            style={[styles.secondary, styles.bottomBarBtn]}
+            disabled={disabled}
+            onPress={() => setHomeSection("analysis")}
+            accessibilityRole="button"
+            accessibilityLabel="Open analysis"
+          >
+            <Text style={styles.secondaryLabel}>Analysis</Text>
+          </Pressable>
+          <Pressable
+            style={[styles.secondary, styles.bottomBarBtn]}
+            onPress={() => {
+              setConfirmNewGame(false);
+              setHomeSection("advanced");
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Open advanced controls"
+          >
+            <Text style={styles.secondaryLabel}>Advanced</Text>
+          </Pressable>
+        </View>
+        <Text style={styles.hint}>
+          Opening a game does not create a new one.
+        </Text>
+      </View>
+    );
+  }
+
+  if (homeOpen) {
+    const isHistory = homeSection === "history";
+    const isAnalysis = homeSection === "analysis";
+    const sectionTitle = isHistory ? "History" : isAnalysis ? "Analysis" : "Advanced";
+    return (
+      <View style={styles.card}>
+        <Text style={styles.title}>{sectionTitle}</Text>
+        <Text style={styles.lead}>
+          {isHistory
+            ? "Score history by date. Opening a game does not create a new one."
+            : isAnalysis
+              ? "How you are bowling. Detail arrives with analysis."
+              : "Diagnostics and recovery. Everyday scoring stays clean."}
+        </Text>
+        {props.onTopNav ? null : <TopNavBar model={topNavModel} />}
+        {leftoverUnavailable ? (
+          <Text style={styles.repair}>{STORAGE_UNAVAILABLE_NOTICE}</Text>
+        ) : null}
+        {notice && !confirmNewGame && !leftoverUnavailable ? (
           <Text style={styles.note}>{notice}</Text>
         ) : null}
 
-        <View style={styles.metricsCard}>
-          <View style={styles.rangeBar}>
+        {isHistory ? (
+          <>
+            <View style={styles.metricsCard}>
+              <View style={styles.rangeBar}>
             {METRIC_RANGE_OPTIONS.map((r) => (
               <Pressable
                 key={r.id}
@@ -534,28 +889,64 @@ export function ScoringPanel(props: {
               </Text>
             </View>
             {group.games.map((g) => (
-              <Pressable
-                key={g.id}
-                style={[styles.gameRow, disabled ? styles.buttonDisabled : null]}
-                disabled={disabled}
-                onPress={() => onOpenGame(g.id)}
-              >
-                <View>
-                  <Text style={styles.body}>Game {g.gameNumber}</Text>
-                  <Text style={styles.meta}>
-                    {g.status === "complete"
-                      ? "Complete"
-                      : g.status === "repair"
-                        ? "Needs repair"
-                        : "Active"}
+              <View key={g.id}>
+                <Pressable
+                  style={[styles.gameRow, disabled ? styles.buttonDisabled : null]}
+                  disabled={disabled}
+                  onPress={() => onOpenGame(g.id)}
+                >
+                  <View>
+                    <Text style={styles.body}>Game {g.gameNumber}</Text>
+                    <Text style={styles.meta}>
+                      {g.status === "complete"
+                        ? "Complete"
+                        : g.status === "repair"
+                          ? "Needs repair"
+                          : "Active"}
+                    </Text>
+                  </View>
+                  <Text style={styles.gameScore}>
+                    {g.status === "complete" && g.finalTotal != null
+                      ? g.finalTotal
+                      : "…"}
                   </Text>
-                </View>
-                <Text style={styles.gameScore}>
-                  {g.status === "complete" && g.finalTotal != null
-                    ? g.finalTotal
-                    : "…"}
-                </Text>
-              </Pressable>
+                </Pressable>
+                {discardableGame(g) ? (
+                  confirmDiscardId === g.id ? (
+                    <View style={styles.topNavRow}>
+                      <Pressable
+                        style={[styles.button, styles.topNavBtn]}
+                        disabled={disabled}
+                        onPress={() => onConfirmDiscard(g.id)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Confirm discard Game ${g.gameNumber}`}
+                      >
+                        <Text style={styles.buttonLabel}>Confirm discard</Text>
+                      </Pressable>
+                      <Pressable
+                        style={[styles.secondary, styles.topNavBtn]}
+                        onPress={onCancelDiscard}
+                        accessibilityRole="button"
+                        accessibilityLabel="Cancel discard"
+                      >
+                        <Text style={styles.secondaryLabel}>Cancel</Text>
+                      </Pressable>
+                    </View>
+                  ) : (
+                    <Pressable
+                      style={styles.secondary}
+                      disabled={disabled}
+                      onPress={() => onRequestDiscard(g.id)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Discard empty Game ${g.gameNumber}`}
+                    >
+                      <Text style={styles.secondaryLabel}>
+                        Discard empty game
+                      </Text>
+                    </Pressable>
+                  )
+                ) : null}
+              </View>
             ))}
           </View>
         ))}
@@ -563,21 +954,29 @@ export function ScoringPanel(props: {
         {dateGroups.length === 0 ? (
           <Text style={styles.body}>No games yet in this range.</Text>
         ) : null}
-
-        <Pressable
-          style={[styles.button, disabled ? styles.buttonDisabled : null]}
-          disabled={disabled}
-          onPress={onNewGame}
-        >
-          <Text style={styles.buttonLabel}>Start New Game</Text>
-        </Pressable>
+        <Text style={styles.hint}>
+          Games with recorded balls cannot be discarded — open one to resume it.
+        </Text>
+          </>
+        ) : isAnalysis ? (
+          <View style={styles.analysisCard}>
+            <Text style={styles.body}>{ANALYSIS_PENDING_COPY}</Text>
+            <Text style={styles.body}>
+              {analysisAvailableSummary(
+                metrics.qualifyingGames,
+                metrics.overallAverage,
+              )}
+            </Text>
+          </View>
+        ) : (
+          <AdvancedScreen model={props.advanced} />
+        )}
       </View>
     );
   }
 
   return (
     <View style={styles.card}>
-      <Text style={styles.title}>Bowling</Text>
       {empty ? (
         <Text style={styles.lead}>
           Tap standing pins still up, then ✓. X, G, and / save immediately when
@@ -589,39 +988,61 @@ export function ScoringPanel(props: {
           {view?.gameMissing ? " (not found)" : ""}
         </Text>
       )}
+      {props.onTopNav ? null : <TopNavBar model={topNavModel} />}
       {leftoverUnavailable ? (
         <Text style={styles.repair}>{STORAGE_UNAVAILABLE_NOTICE}</Text>
       ) : null}
-      {notice && !leftoverUnavailable ? <Text style={styles.note}>{notice}</Text> : null}
+      {notice && !confirmNewGame && !leftoverUnavailable ? <Text style={styles.note}>{notice}</Text> : null}
       {needsRepair ? (
         <Text style={styles.repair}>
           This game needs a later ball fixed before the score can be finished.
         </Text>
       ) : null}
       {completed ? (
-        <Text style={styles.complete}>
-          Game finished. Final score {view?.sheet?.finalTotal}.
-        </Text>
+        <>
+          <Text style={styles.complete}>
+            Game finished. Final score {view?.sheet?.finalTotal}.
+          </Text>
+          {completeQuip ? (
+            <Text style={styles.quip}>{completeQuip}</Text>
+          ) : null}
+          {savedBanner ? (
+            <Text style={styles.savedBanner} accessibilityLabel="Game saved">
+              {savedBanner}
+            </Text>
+          ) : null}
+          <Pressable
+            style={[styles.button, disabled ? styles.buttonDisabled : null]}
+            disabled={disabled}
+            onPress={onSaveGame}
+            accessibilityRole="button"
+            accessibilityLabel="Save game and stay here"
+          >
+            <Text style={styles.buttonLabel}>Save game</Text>
+          </Pressable>
+        </>
       ) : null}
 
       {view?.sheet && !historyOpen ? (
-        <Scorecard
-          frames={view.sheet.frames}
-          runningTotals={view.sheet.runningTotals}
-          onFramePress={onFrameTap}
-          highlightFrame={
-            fixMode && selectedRoll
-              ? selectedRoll.frame_number
-              : view.next?.frame_number ?? null
-          }
-        />
+        <View style={styles.laneCard} accessibilityLabel="Scorecard">
+          <Scorecard
+            frames={view.sheet.frames}
+            runningTotals={view.sheet.runningTotals}
+            onFramePress={onFrameTap}
+            highlightFrame={
+              fixMode && selectedRoll
+                ? selectedRoll.frame_number
+                : view.next?.frame_number ?? null
+            }
+          />
+        </View>
       ) : null}
 
       {(pad === "nextBall" || (fixMode && fixLayout.showEditor)) &&
       activeSlot &&
       !completed ? (
-        <View style={styles.block}>
-          <Text style={styles.context}>
+        <View style={[styles.block, styles.laneCard]}>
+          <Text style={[styles.context, styles.laneText]}>
             Frame {activeSlot.frame_number} · {ordinalBall(activeSlot.roll_number)}{" "}
             ball
             {fixMode ? " · correcting" : ""}
@@ -655,7 +1076,7 @@ export function ScoringPanel(props: {
           ) : null}
           {rack ? (
             <>
-              <Text style={styles.prompt}>Tap the pins still standing.</Text>
+              <Text style={[styles.prompt, styles.laneText]}>Tap the pins still standing.</Text>
               <StandingRack
                 rack={rack}
                 selected={draftStanding}
@@ -697,7 +1118,7 @@ export function ScoringPanel(props: {
             </>
           ) : (
             <>
-              <Text style={styles.prompt}>
+              <Text style={[styles.prompt, styles.laneText]}>
                 Prior pin identities unknown — enter pins knocked down (
                 {remainingCount ?? "?"} remaining).
               </Text>
@@ -761,73 +1182,311 @@ export function ScoringPanel(props: {
           <Text style={styles.body}>
             These are your games. Tap one to open it.
           </Text>
+          <Text style={styles.hint}>
+            Games with recorded balls cannot be discarded — open one to
+            resume it.
+          </Text>
           <Pressable
             style={[styles.button, disabled ? styles.buttonDisabled : null]}
             disabled={disabled}
-            onPress={onNewGame}
+            onPress={onRequestNewGame}
           >
             <Text style={styles.buttonLabel}>Start a new game</Text>
           </Pressable>
           {history.map((entry) => (
-            <Pressable
-              key={entry.id}
-              disabled={disabled}
-              style={[
-                styles.roll,
-                selectedGameId === entry.id ? styles.rollSelected : null,
-              ]}
-              onPress={() => onOpenGame(entry.id)}
-            >
-              <Text style={styles.body}>{entry.label}</Text>
-              <Text style={styles.openAction}>Open</Text>
-            </Pressable>
+            <View key={entry.id}>
+              <Pressable
+                disabled={disabled}
+                style={[
+                  styles.roll,
+                  selectedGameId === entry.id ? styles.rollSelected : null,
+                ]}
+                onPress={() => onOpenGame(entry.id)}
+              >
+                <Text style={styles.body}>{entry.label}</Text>
+                <Text style={styles.openAction}>Open</Text>
+              </Pressable>
+              {discardableGame({
+                status: entry.status,
+                rollCount: entry.rollCount,
+              }) ? (
+                confirmDiscardId === entry.id ? (
+                  <View style={styles.topNavRow}>
+                    <Pressable
+                      style={[styles.button, styles.topNavBtn]}
+                      disabled={disabled}
+                      onPress={() => onConfirmDiscard(entry.id)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Confirm discard ${entry.label}`}
+                    >
+                      <Text style={styles.buttonLabel}>Confirm discard</Text>
+                    </Pressable>
+                    <Pressable
+                      style={[styles.secondary, styles.topNavBtn]}
+                      onPress={onCancelDiscard}
+                      accessibilityRole="button"
+                      accessibilityLabel="Cancel discard"
+                    >
+                      <Text style={styles.secondaryLabel}>Cancel</Text>
+                    </Pressable>
+                  </View>
+                ) : (
+                  <Pressable
+                    style={styles.secondary}
+                    disabled={disabled}
+                    onPress={() => onRequestDiscard(entry.id)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Discard empty game ${entry.label}`}
+                  >
+                    <Text style={styles.secondaryLabel}>
+                      Discard empty game
+                    </Text>
+                  </Pressable>
+                )
+              ) : null}
+            </View>
           ))}
         </View>
       ) : null}
 
-      <View style={styles.actionColumn}>
-        {completed && !historyOpen ? (
-          <>
-            <Pressable
-              style={[styles.button, disabled ? styles.buttonDisabled : null]}
-              disabled={disabled}
-              onPress={onNewGame}
-            >
-              <Text style={styles.buttonLabel}>Start New Game</Text>
-            </Pressable>
-            <Pressable style={styles.secondary} onPress={onGoHome}>
-              <Text style={styles.secondaryLabel}>Done for the Day</Text>
-            </Pressable>
-          </>
-        ) : null}
-        {!fixMode && view?.rolls.length && !historyOpen && !completed ? (
+      {!fixMode && view?.rolls.length && !historyOpen && !completed ? (
+        <Pressable
+          style={styles.secondary}
+          disabled={disabled || !!view?.gameMissing}
+          onPress={onEnterFixMode}
+        >
+          <Text style={styles.secondaryLabel}>Fix a ball</Text>
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}
+
+/** Live diagnostics snapshot for the dedicated Advanced screen (one-way, host-owned). */
+export type AdvancedModel = {
+  available: boolean;
+  adapter: string;
+  startup: string;
+  statuses: string;
+  deviceId: string;
+  schema: string;
+  pendingOutbox: string;
+  localChanges: string;
+  activeSession: string;
+  sync: string;
+  nasAccepted: string;
+  network: string;
+  note: string;
+  recoveryLine: string;
+  faultArmed: boolean;
+  conformance: null | {
+    adapterName: string;
+    platform: string;
+    passed: number;
+    failed: number;
+    rows: { name: string; ok: boolean; error?: string }[];
+  };
+  canRunConformance: boolean;
+  onRecover: () => void;
+  onArmTest: () => void;
+  onDisarmTest: () => void;
+  onToggleNetwork: () => void;
+  onProcessRestart: () => void;
+  onRunConformance: () => void;
+};
+
+function AdvancedRow(props: { label: string; value: string }) {
+  return (
+    <View style={styles.metricRow}>
+      <Text style={styles.metricLabel}>{props.label}</Text>
+      <Text style={styles.metricValue}>{props.value}</Text>
+    </View>
+  );
+}
+
+function AdvancedButton(props: {
+  label: string;
+  disabled?: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      style={[styles.button, props.disabled ? styles.buttonDisabled : null]}
+      disabled={props.disabled}
+      onPress={props.onPress}
+      accessibilityRole="button"
+      accessibilityLabel={props.label}
+    >
+      <Text style={styles.buttonLabel}>{props.label}</Text>
+    </Pressable>
+  );
+}
+
+export function AdvancedScreen(props: { model: AdvancedModel | null | undefined }) {
+  const m = props.model;
+  if (!m) {
+    return (
+      <View style={styles.analysisCard}>
+        <Text style={styles.body}>
+          Advanced controls are not available yet — reopen this screen once the
+          app finishes loading.
+        </Text>
+      </View>
+    );
+  }
+  return (
+    <View style={{ gap: 12 }}>
+      <View style={styles.analysisCard}>
+        <AdvancedRow label="SQLite recovery" value={m.recoveryLine} />
+        <AdvancedRow
+          label="Recovery test"
+          value={m.faultArmed ? "armed (one shot)" : "disarmed"}
+        />
+      </View>
+      {m.available ? (
+        <View style={styles.analysisCard}>
+          <AdvancedRow label="Adapter" value={m.adapter} />
+          <AdvancedRow label="Startup" value={m.startup} />
+          <AdvancedRow label="Statuses" value={m.statuses} />
+          <AdvancedRow label="Device ID" value={m.deviceId} />
+          <AdvancedRow label="Schema" value={m.schema} />
+          <AdvancedRow label="Pending outbox" value={m.pendingOutbox} />
+          <AdvancedRow label="Local changes" value={m.localChanges} />
+          <AdvancedRow label="Active session" value={m.activeSession} />
+          <AdvancedRow label="Sync" value={m.sync} />
+          <AdvancedRow label="NAS accepted" value={m.nasAccepted} />
+          <AdvancedRow label="Network" value={m.network} />
+          <Text style={styles.hint}>{m.note}</Text>
+        </View>
+      ) : null}
+      <AdvancedButton label="Recover from database" onPress={m.onRecover} />
+      <AdvancedButton
+        label={m.faultArmed ? "Recovery test armed (one shot)" : "Arm one recovery test"}
+        disabled={m.faultArmed}
+        onPress={m.onArmTest}
+      />
+      <AdvancedButton
+        label="Disarm recovery test"
+        disabled={!m.faultArmed}
+        onPress={m.onDisarmTest}
+      />
+      <AdvancedButton
+        label={
+          m.network === "unavailable"
+            ? "Simulated network: unavailable"
+            : "Simulated network: available"
+        }
+        onPress={m.onToggleNetwork}
+      />
+      <AdvancedButton label="Simulate process restart" onPress={m.onProcessRestart} />
+      {m.canRunConformance ? (
+        <AdvancedButton label="Run expo-sqlite conformance" onPress={m.onRunConformance} />
+      ) : (
+        <Text style={styles.hint}>
+          expo-sqlite conformance is native-only. Web preview uses sql.js.
+        </Text>
+      )}
+      {m.conformance ? (
+        <View style={styles.analysisCard}>
+          <Text style={styles.body}>
+            {m.conformance.adapterName} on {m.conformance.platform}:{" "}
+            {m.conformance.passed} passed, {m.conformance.failed} failed
+          </Text>
+          {m.conformance.rows.map((row) => (
+            <Text key={row.name} style={styles.body}>
+              {row.ok ? "PASS" : "FAIL"} — {row.name}
+              {row.error ? `: ${row.error}` : ""}
+            </Text>
+          ))}
+        </View>
+      ) : null}
+      <Text style={styles.hint}>
+        Network unavailable is not data loss. Until NAS sync exists, records stay
+        Saved locally / Waiting to sync. Synced is never faked.
+      </Text>
+    </View>
+  );
+}
+
+export function TopNavBar(props: { model: TopNavModel }) {
+  const m = props.model;
+  if (m.actions.length === 0 && !m.confirmNewGame) return null;
+  return (
+    <View style={styles.topNav} accessibilityLabel="Navigation">
+      <View style={styles.topNavRow}>
+        {m.actions.includes("home") ? (
           <Pressable
-            style={styles.secondary}
-            disabled={disabled || !!view?.gameMissing}
-            onPress={onEnterFixMode}
+            style={[styles.secondary, styles.topNavBtn]}
+            disabled={m.disabled}
+            onPress={m.onGoHome}
+            accessibilityRole="button"
+            accessibilityLabel="Go home"
           >
-            <Text style={styles.secondaryLabel}>Fix a ball</Text>
+            <Text style={styles.topNavLabel}>Home</Text>
           </Pressable>
         ) : null}
-        <View style={styles.actionRow}>
+        {m.actions.includes("history") ? (
           <Pressable
-            style={[styles.secondary, styles.actionButton]}
-            disabled={disabled}
-            onPress={onGoHome}
+            style={[styles.secondary, styles.topNavBtn]}
+            disabled={m.disabled}
+            onPress={m.onToggleHistory}
+            accessibilityRole="button"
+            accessibilityLabel="Toggle previous games"
           >
-            <Text style={styles.secondaryLabel}>Home</Text>
-          </Pressable>
-          <Pressable
-            style={[styles.secondary, styles.actionButton]}
-            disabled={disabled}
-            onPress={onToggleHistory}
-          >
-            <Text style={styles.secondaryLabel}>
-              {historyOpen ? "Hide previous games" : "Previous games"}
+            <Text style={styles.topNavLabel}>
+              {historyToggleLabel(m.historyOpen)}
             </Text>
           </Pressable>
-        </View>
+        ) : null}
+        {m.actions.includes("done") ? (
+          <Pressable
+            style={[styles.secondary, styles.topNavBtn]}
+            disabled={m.disabled}
+            onPress={m.onGoHome}
+            accessibilityRole="button"
+            accessibilityLabel="Done for the day"
+          >
+            <Text style={styles.topNavLabel}>Done for the Day</Text>
+          </Pressable>
+        ) : null}
+        {m.actions.includes("start") ? (
+          <Pressable
+            style={[styles.button, styles.topNavBtn]}
+            disabled={m.disabled}
+            onPress={m.onRequestNewGame}
+            accessibilityRole="button"
+            accessibilityLabel="Start a new game"
+          >
+            <Text style={styles.topNavLabelPrimary}>Start New Game</Text>
+          </Pressable>
+        ) : null}
       </View>
+      {m.confirmNewGame ? (
+        <View style={styles.confirmBox}>
+          <Text style={styles.body}>
+            {m.confirmNotice || "Start a new game?"}
+          </Text>
+          <View style={styles.topNavRow}>
+            <Pressable
+              style={[styles.button, styles.topNavBtn]}
+              disabled={m.disabled}
+              onPress={m.onConfirmNewGame}
+              accessibilityRole="button"
+              accessibilityLabel="Confirm new game"
+            >
+              <Text style={styles.topNavLabelPrimary}>Confirm new game</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.secondary, styles.topNavBtn]}
+              onPress={m.onCancelNewGame}
+              accessibilityRole="button"
+              accessibilityLabel="Cancel new game"
+            >
+              <Text style={styles.topNavLabel}>Cancel</Text>
+            </Pressable>
+          </View>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -894,8 +1553,7 @@ function StandingRack(props: {
                 disabled={props.disabled}
                 onPress={() => props.onToggle(pin)}
                 style={[
-                  styles.pin,
-                  on ? styles.pinStanding : styles.pinDown,
+                  styles.pinPress,
                   props.disabled ? styles.buttonDisabled : null,
                 ]}
                 accessibilityRole="button"
@@ -904,7 +1562,7 @@ function StandingRack(props: {
                   on ? `Pin ${pin} standing` : `Pin ${pin} down`
                 }
               >
-                <Text style={styles.pinLabel}>{pin}</Text>
+                <RackPinSvg pin={pin} standing={on} />
               </Pressable>
             );
           })}
@@ -1106,37 +1764,37 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
   },
   gameScore: { fontSize: 20, fontWeight: "800", color: "#1b1b1b" },
-  rack: { gap: 8, alignItems: "center", paddingVertical: 8 },
-  rackRow: { flexDirection: "row", gap: 8, justifyContent: "center" },
-  pin: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 2,
+  rack: { gap: 6, alignItems: "center", paddingVertical: 4 },
+  rackRow: { flexDirection: "row", gap: 6, justifyContent: "center" },
+  laneCard: {
+    backgroundColor: "#17171f",
+    borderRadius: 12,
+    padding: 10,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: "#33334a",
+    marginBottom: 8,
   },
-  pinStanding: { backgroundColor: "#fff", borderColor: "#1f4d3a" },
-  pinDown: { backgroundColor: "#e8e2d8", borderColor: "#cfc6b8", opacity: 0.55 },
-  pinGhost: { width: 44, height: 44 },
-  pinLabel: { fontSize: 16, fontWeight: "800", color: "#1b1b1b" },
+  laneText: { color: "#f5f3ee" },
+  pinPress: { minHeight: 52, justifyContent: "flex-end", alignItems: "center" },
+  pinGhost: { width: 36, height: 36 },
   cornerRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    gap: 8,
+    gap: 6,
   },
   cornerBtn: {
     flex: 1,
-    minHeight: 48,
+    minHeight: 44,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: "#cfc6b8",
-    backgroundColor: "#fff",
+    borderColor: "#4a4a63",
+    backgroundColor: "#262633",
     alignItems: "center",
     justifyContent: "center",
   },
   cornerBtnPrimary: { backgroundColor: "#1f4d3a", borderColor: "#1f4d3a" },
-  cornerBtnLabel: { fontSize: 22, fontWeight: "800", color: "#1b1b1b" },
+  cornerBtnLabel: { fontSize: 20, fontWeight: "800", color: "#f5f3ee" },
   cornerBtnLabelPrimary: { color: "#fff" },
   ballSwitchRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   ballSwitchBtn: {
@@ -1144,24 +1802,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: "#cfc6b8",
-    backgroundColor: "#fff",
+    borderColor: "#4a4a63",
+    backgroundColor: "#262633",
   },
   ballSwitchBtnActive: { backgroundColor: "#1f4d3a", borderColor: "#1f4d3a" },
-  ballSwitchLabel: { fontSize: 14, fontWeight: "700", color: "#1b1b1b" },
+  ballSwitchLabel: { fontSize: 14, fontWeight: "700", color: "#f5f3ee" },
   ballSwitchLabelActive: { color: "#fff" },
   pad: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   padBtn: {
-    width: 48,
-    height: 48,
+    width: 44,
+    height: 44,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: "#cfc6b8",
+    borderColor: "#4a4a63",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#fff",
+    backgroundColor: "#262633",
   },
-  padLabel: { fontSize: 18, fontWeight: "700" },
+  padLabel: { fontSize: 18, fontWeight: "700", color: "#f5f3ee" },
   button: {
     backgroundColor: "#1f4d3a",
     borderRadius: 10,
@@ -1179,9 +1837,51 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
   },
   secondaryLabel: { color: "#1b1b1b", fontWeight: "600", fontSize: 15 },
-  actionColumn: { gap: 8 },
-  actionRow: { flexDirection: "row", gap: 8 },
-  actionButton: { flex: 1 },
+  heroCard: {
+    backgroundColor: "#17171f",
+    borderRadius: 14,
+    paddingVertical: 20,
+    paddingHorizontal: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    borderWidth: 1,
+    borderColor: "#33334a",
+    marginBottom: 8,
+    flex: 1,
+  },
+  heroTitle: { color: "#e9c46a", fontSize: 34, fontWeight: "800" },
+  heroTag: { color: "#f5f3ee", fontSize: 15, fontWeight: "600" },
+  heroStats: { color: "#b9b9d0", fontSize: 14, fontWeight: "600" },
+  landingCard: { flex: 1, minHeight: Math.max(0, Dimensions.get("window").height - 200) },
+  quip: { color: "#e9c46a", fontSize: 15, fontWeight: "700" },
+  bottomBar: { flexDirection: "row", gap: 6 },
+  bottomBarBtn: { flex: 1 },
+  analysisCard: { gap: 8 },
+  savedBanner: {
+    color: "#ffffff",
+    fontWeight: "800",
+    fontSize: 16,
+    backgroundColor: "#1f4d3a",
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    overflow: "hidden",
+  },
+  topNav: {
+    gap: 8,
+    padding: 8,
+    backgroundColor: "#ffffff",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#1f4d3a",
+    marginBottom: 8,
+  },
+  topNavRow: { flexDirection: "row", gap: 6 },
+  topNavBtn: { paddingVertical: 6, paddingHorizontal: 14 },
+  topNavLabel: { color: "#1b1b1b", fontWeight: "600", fontSize: 13 },
+  topNavLabelPrimary: { color: "#ffffff", fontWeight: "700", fontSize: 13 },
+  confirmBox: { gap: 8 },
   historyBox: { gap: 8 },
   roll: {
     padding: 12,
@@ -1200,15 +1900,15 @@ const styles = StyleSheet.create({
     width: "18%",
     minWidth: 56,
     borderWidth: 1,
-    borderColor: "#cfc6b8",
+    borderColor: "#4a4a63",
     borderRadius: 6,
     padding: 4,
-    backgroundColor: "#fff",
+    backgroundColor: "#262633",
   },
   frameTen: { width: "22%", minWidth: 68 },
-  frameHighlight: { borderColor: "#1f4d3a", borderWidth: 2 },
-  frameNum: { fontSize: 11, fontWeight: "700", color: "#5c564c" },
+  frameHighlight: { borderColor: "#e9c46a", borderWidth: 2 },
+  frameNum: { fontSize: 11, fontWeight: "700", color: "#b9b9d0" },
   balls: { flexDirection: "row", gap: 2, minHeight: 20 },
-  ballMark: { fontSize: 14, fontWeight: "800", minWidth: 14 },
-  frameTotal: { fontSize: 13, fontWeight: "700", marginTop: 2 },
+  ballMark: { fontSize: 14, fontWeight: "800", minWidth: 14, color: "#ffffff" },
+  frameTotal: { fontSize: 13, fontWeight: "700", marginTop: 2, color: "#e9c46a" },
 });

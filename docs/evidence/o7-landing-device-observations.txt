@@ -1,0 +1,15 @@
+Home landing redesign (2026-09-24, APK F21D0F37…, R3CY40E6FVJ).
+Data-preserving install, hash-matched, firstInstallTime preserved. Navigation
+taps only (in-memory); no games created, edited, or discarded.
+
+1. Landing: navy hero (gold Bowling, tagline, live Overall + qualifying chip),
+   full-width New Game, History/Analysis/Advanced chips, hint. No duplicate
+   Advanced disclosure on landing (hidden until opened).
+2. History chip → History screen (title, metrics, date averages, date groups,
+   discard affordance) with frozen [Home]. Screenshot verified.
+3. Analysis chip → Analysis screen: honest B2/B3 pending copy + qualifying +
+   overall average only. Screenshot verified. No Strike %/Spare %/leaves
+   claimed.
+4. New Game → inline confirm (existing flow); Advanced chip expands the
+   harness below (existing disclosure toggles Hide).
+5. Returned to landing; state left clean.

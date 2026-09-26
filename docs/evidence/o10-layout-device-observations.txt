@@ -1,0 +1,14 @@
+Layout fill + Advanced-screen follow-ups (2026-09-24, APK DF68DCC3…,
+R3CY40E6FVJ). Data-preserving install, hash-matched, firstInstallTime
+preserved. No games created, edited, or discarded.
+
+1. Root cause of the home gap: the outer ScrollView content carried
+   paddingBottom 96 (dead beige space no card can fill). Reduced to 28.
+2. Removed the phantom empty frozen-nav wrapper on landing (it rendered a
+   padded empty box when the bar had nothing to show).
+3. onLayout-adaptive landing min-height added (guarded, converges); static
+   floor retained.
+4. UI re-verification of this build blocked: device fell back to secure lock
+   and dismiss-keyguard no longer bypasses it. No taps attempted while
+   locked. Layout changes are low-risk (padding + conditional wrapper) and
+   typechecked; visual confirmation left to everyday use.

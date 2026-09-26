@@ -4,7 +4,6 @@ import {
   AppState,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -24,11 +23,7 @@ import {
   runExpoSqliteConformance,
   type NativeValidationReport,
 } from "./src/nativeValidation.ts";
-import { ScoringPanel } from "./src/scoringPanel.tsx";
-import {
-  INITIAL_SHELL_DISCLOSURES,
-  toggleDisclosure,
-} from "../../src/shellPresentation.ts";
+import { ScoringPanel, TopNavBar, topNavSnapshotEqual, type AdvancedModel, type TopNavModel } from "./src/scoringPanel.tsx";
 
 type ScreenState =
   | { phase: "loading"; note: string }
@@ -60,11 +55,12 @@ export default function App() {
     null,
   );
   const [processGeneration, setProcessGeneration] = useState(0);
-  const [diagnosticsOpen, setDiagnosticsOpen] = useState(
-    INITIAL_SHELL_DISCLOSURES.diagnosticsOpen,
-  );
   const [recoveryLine, setRecoveryLine] = useState("none");
   const [faultArmed, setFaultArmed] = useState(false);
+  const [topNav, setTopNav] = useState<TopNavModel | null>(null);
+  const handleTopNav = useCallback((model: TopNavModel | null) => {
+    setTopNav((prev) => (topNavSnapshotEqual(prev, model) ? prev : model));
+  }, []);
   const adapterLabel = Platform.OS === "web" ? "sql.js (web preview)" : "expo-sqlite (native)";
 
   const publishFailure = useCallback((result: FailedInitResult, note: string) => {
@@ -136,6 +132,58 @@ export default function App() {
     setNativeReport(report);
   };
 
+  /** One-way diagnostics snapshot for the panel's dedicated Advanced screen. */
+  const readyResult =
+    screen.phase === "ready" && screen.result.ok ? screen.result : null;
+  const advancedModel: AdvancedModel = {
+    available: readyResult !== null,
+    adapter: adapterLabel,
+    startup: readyResult ? readyResult.status : screen.phase,
+    statuses: readyResult ? readyResult.statuses.join(", ") : "—",
+    deviceId: readyResult ? readyResult.device.device_id : "—",
+    schema: readyResult ? String(readyResult.schemaVersion) : "—",
+    pendingOutbox: readyResult ? String(readyResult.pendingOutbox.length) : "—",
+    localChanges: readyResult ? (readyResult.localChangesPending ? "yes" : "no") : "—",
+    activeSession: readyResult
+      ? readyResult.activeSession
+        ? "recovered"
+        : "none"
+      : "—",
+    sync: readyResult ? readyResult.presentation.label : "—",
+    nasAccepted: readyResult ? (readyResult.presentation.nasAccepted ? "yes" : "no") : "—",
+    network: readyResult ? readyResult.network : network,
+    note: screen.note,
+    recoveryLine,
+    faultArmed,
+    conformance: nativeReport
+      ? {
+          adapterName: nativeReport.adapterName,
+          platform: nativeReport.platform,
+          passed: nativeReport.passed,
+          failed: nativeReport.failed,
+          rows: nativeReport.results.map((row) => ({
+            name: row.name,
+            ok: row.ok,
+            error: row.error,
+          })),
+        }
+      : null,
+    canRunConformance: Platform.OS !== "web",
+    onRecover: () => runInit("foreground", "Manual recovery from persistence"),
+    onArmTest: () => {
+      controllerRef.current.armPostProbeFaultOnce();
+      setFaultArmed(true);
+    },
+    onDisarmTest: () => {
+      controllerRef.current.disarmPostProbeFault();
+      setFaultArmed(false);
+    },
+    onToggleNetwork: () =>
+      setNetwork((n) => (n === "unavailable" ? "available" : "unavailable")),
+    onProcessRestart: () => simulateProcessRestart(),
+    onRunConformance: () => runNativeConformance(),
+  };
+
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar style="dark" />
@@ -143,7 +191,14 @@ export default function App() {
         style={styles.flex}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
+        {topNav &&
+        (topNav.actions.length > 0 || topNav.confirmNewGame) ? (
+          <View style={styles.frozenNav}>
+            <TopNavBar model={topNav} />
+          </View>
+        ) : null}
         <ScrollView
+          style={styles.flex}
           contentContainerStyle={styles.content}
           keyboardShouldPersistTaps="handled"
         >
@@ -177,6 +232,8 @@ export default function App() {
             }
             enabled={screen.phase === "ready" && screen.result.ok}
             reloadToken={screen.note}
+            onTopNav={handleTopNav}
+            advanced={advancedModel}
           />
 
           {screen.phase === "ready" && !screen.result.ok ? (
@@ -186,176 +243,24 @@ export default function App() {
             </View>
           ) : null}
 
-          <Pressable
-            onPress={() =>
-              setDiagnosticsOpen((open) =>
-                toggleDisclosure(
-                  { historyOpen: false, diagnosticsOpen: open },
-                  "diagnosticsOpen",
-                ).diagnosticsOpen,
-              )
-            }
-            style={styles.disclosure}
-          >
-            <Text style={styles.disclosureLabel}>
-              {diagnosticsOpen ? "Hide advanced" : "Advanced"}
-            </Text>
-          </Pressable>
-
-          {diagnosticsOpen ? (
-            <>
-              <Text style={styles.title}>ARCH-001 diagnostic harness</Text>
-              <Text style={styles.subtitle}>
-                Persistence, recovery, and thin offline scoring (derived, non-authoritative).
-              </Text>
-              <View style={styles.card}>
-                <Row label="SQLite recovery" value={recoveryLine} />
-                <Row
-                  label="Recovery test"
-                  value={faultArmed ? "armed (one shot)" : "disarmed"}
-                />
-              </View>
-              {screen.phase === "ready" && screen.result.ok ? (
-                <View style={styles.card}>
-                  <Row label="Adapter" value={adapterLabel} />
-                  <Row label="Startup" value={screen.result.status} />
-                  <Row label="Statuses" value={screen.result.statuses.join(", ")} />
-                  <Row label="Device ID" value={screen.result.device.device_id} />
-                  <Row label="Schema" value={String(screen.result.schemaVersion)} />
-                  <Row
-                    label="Pending outbox"
-                    value={String(screen.result.pendingOutbox.length)}
-                  />
-                  <Row
-                    label="Local changes"
-                    value={screen.result.localChangesPending ? "yes" : "no"}
-                  />
-                  <Row
-                    label="Active session"
-                    value={screen.result.activeSession ? "recovered" : "none"}
-                  />
-                  <Row label="Sync" value={screen.result.presentation.label} />
-                  <Row
-                    label="NAS accepted"
-                    value={screen.result.presentation.nasAccepted ? "yes" : "no"}
-                  />
-                  <Row label="Network" value={screen.result.network} />
-                  <Text style={styles.note}>{screen.note}</Text>
-                </View>
-              ) : null}
-              <View style={styles.actions}>
-                <Button
-                  label="Recover from database"
-                  onPress={() =>
-                    runInit("foreground", "Manual recovery from persistence")
-                  }
-                />
-                <Button
-                  label={
-                    faultArmed
-                      ? "Recovery test armed (one shot)"
-                      : "Arm one recovery test"
-                  }
-                  disabled={faultArmed}
-                  onPress={() => {
-                    controllerRef.current.armPostProbeFaultOnce();
-                    setFaultArmed(true);
-                  }}
-                />
-                <Button
-                  label="Disarm recovery test"
-                  disabled={!faultArmed}
-                  onPress={() => {
-                    controllerRef.current.disarmPostProbeFault();
-                    setFaultArmed(false);
-                  }}
-                />
-                <Button
-                  label={
-                    network === "unavailable"
-                      ? "Simulated network: unavailable"
-                      : "Simulated network: available"
-                  }
-                  onPress={() =>
-                    setNetwork((n) => (n === "unavailable" ? "available" : "unavailable"))
-                  }
-                />
-                <Button
-                  label="Simulate process restart"
-                  onPress={simulateProcessRestart}
-                />
-                {Platform.OS !== "web" ? (
-                  <Button
-                    label="Run expo-sqlite conformance"
-                    onPress={runNativeConformance}
-                  />
-                ) : (
-                  <Text style={styles.footnote}>
-                    expo-sqlite conformance is native-only. Web preview uses sql.js.
-                  </Text>
-                )}
-              </View>
-              {nativeReport ? (
-                <View style={nativeReport.failed === 0 ? styles.card : styles.failBox}>
-                  <Text style={styles.failTitle}>
-                    {nativeReport.adapterName} on {nativeReport.platform}:{" "}
-                    {nativeReport.passed} passed, {nativeReport.failed} failed
-                  </Text>
-                  {nativeReport.results.map((row) => (
-                    <Text key={row.name} style={styles.body}>
-                      {row.ok ? "PASS" : "FAIL"} — {row.name}
-                      {row.error ? `: ${row.error}` : ""}
-                    </Text>
-                  ))}
-                </View>
-              ) : null}
-              <Text style={styles.footnote}>
-                Network unavailable is not data loss. Until NAS sync exists, records stay
-                Saved locally / Waiting to sync. Synced is never faked.
-              </Text>
-            </>
-          ) : null}
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
-function Row(props: { label: string; value: string }) {
-  return (
-    <View style={styles.row}>
-      <Text style={styles.label}>{props.label}</Text>
-      <Text style={styles.value} selectable>
-        {props.value}
-      </Text>
-    </View>
-  );
-}
-
-function Button(props: {
-  label: string;
-  onPress: () => void;
-  disabled?: boolean;
-}) {
-  return (
-    <Pressable
-      onPress={props.onPress}
-      disabled={props.disabled}
-      style={({ pressed }) => [
-        styles.button,
-        props.disabled ? styles.buttonDisabled : null,
-        pressed ? styles.buttonPressed : null,
-      ]}
-    >
-      <Text style={styles.buttonLabel}>{props.label}</Text>
-    </Pressable>
-  );
-}
-
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#f4f1ea" },
   flex: { flex: 1 },
-  content: { padding: 20, paddingBottom: 96, gap: 12 },
+  frozenNav: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 4,
+    backgroundColor: "#f4f1ea",
+    borderBottomWidth: 1,
+    borderBottomColor: "#1f4d3a",
+  },
+  content: { padding: 20, paddingBottom: 28, gap: 12, flexGrow: 1 },
   disclosure: {
     backgroundColor: "#fff",
     borderRadius: 10,

@@ -15,6 +15,7 @@ export { validateNextRoll, type NextRollCandidate } from "./validate.ts";
 export { loadGameFacts } from "./store.ts";
 export {
   startGame,
+  discardEmptyGame,
   recordRoll,
   correctRoll,
   correctRollWithStanding,

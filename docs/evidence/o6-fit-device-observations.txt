@@ -1,0 +1,10 @@
+Polish round 3: fit-to-screen + title removal (2026-09-24, APK 0CFE45AB…,
+R3CY40E6FVJ). Data-preserving install, hash-matched, firstInstallTime
+preserved. Opened one existing game to screenshot; went Home after. No games
+created, edited, or discarded.
+
+1. Game scoring screen: no "Bowling" title (Home keeps it); entry starts at
+   the frozen chips.
+2. Pins 44→36px, tighter rack/card gaps, shorter X/G/✓// buttons. Screenshot
+   confirms the full entry screen (frame strip + rack + buttons + Fix a ball)
+   fits one viewport with no scroll.

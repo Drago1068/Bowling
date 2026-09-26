@@ -1,0 +1,23 @@
+Polish round 2: strip + chips + Save banner + dark lane theme (2026-09-24,
+APK DDCDAE1A…, R3CY40E6FVJ). Data-preserving install, hash-matched,
+firstInstallTime preserved. No games created, edited, or discarded by
+verification.
+
+1. Header band + gold dots removed (user vote: strip it back); plain title.
+2. Nav buttons are compact chips (natural width, 13px labels) in a white
+   bordered card with raised top separation (user vote: compact chips).
+3. Confirm text no longer duplicated (was: frozen bar + body note).
+4. Save: persistent green banner "Saved ✓ · Final N · time" stays in the
+   completed game until navigation; still zero canonical/outbox writes.
+   Verified on completed 203: banner + notice, final unchanged, stayed put.
+5. Dark lane theme on the entry screen only (scorecard strip + rack + X/G/✓//
+   + count pad): navy cards, dark pin circles with white numbers, selected
+   standing pin renders white with red stripe (style applied; live-select
+   screenshot not captured — see 7), gold frame totals, gold active-frame
+   highlight. History/metrics stay light for daylight readability.
+   Foul/Miss need no new buttons: Gutter covers pinfall 0 (incl. fouls).
+6. Touch-zone fix from prior round carried in this build (paddingTop 16).
+7. STOPPED touching the device mid-round: foreground was the user's messaging
+   app (they are actively using the phone). The last pin-select taps never
+   reached the bowling app — no draft, game, or row was touched. White/red
+   standing-pin visual and center-tap feel are pending user eyes.

@@ -1,0 +1,30 @@
+Visual-polish + Save + Advanced-placement follow-on (2026-09-24,
+APK 1B6E8AC9…, R3CY40E6FVJ). Data-preserving install over BB4A1D11…,
+hash-matched on device, firstInstallTime 2026-09-07 preserved. No games
+created, edited, or discarded by verification; Qualifying moved 23 → 25
+between checks from the user's own bowling, not from verification taps.
+
+1. Frozen bar: white card, green border, compact 13px labels, extra top
+   padding — visually distinct from the phone status area (user-eyes
+   confirmation pending).
+2. Touch-zone defect found during verification: with the compact bar, button
+   centers sat at y≈123 inside the status-bar touch exclusion — taps at bar
+   center were swallowed while y≈150 worked. Fixed with frozenNav
+   paddingTop 16 + paddingBottom 4 (final APK 1B6E8AC9…; center-tap
+   re-verification left to everyday use, low risk: layout-only change).
+3. Header: dark-green band, white title, gold pin-dot motif on Home and game
+   screens (dump: "Bowling" band renders above lead text).
+4. Completed game (final 203): "Save game" present; tap → "All balls already
+   saved — final 203. Still in this game.", final unchanged, still in game.
+   Save performs zero canonical/outbox writes by design (each ball already
+   persists at entry time).
+5. "Previous games" toggle from the frozen bar flips label and opens the
+   history list with the discard footnote; "Home" returns. All in-memory.
+6. Advanced: present at the bottom of Home below all date groups; absent from
+   the game view (checked entry screen and after scrolling — no Advanced
+   node). Loading/failure states still expose it (snapshot absent → shown).
+7. Discard affordance renders only on a zero-roll Active row ("Discard empty
+   game"); rows with balls show resume-only + footnote. No discard executed
+   on device (would archive a real row; domain-tested instead).
+8. Stopped device interaction when the phone went to user foreground (Google
+   app) mid-verification to avoid interfering with live use.

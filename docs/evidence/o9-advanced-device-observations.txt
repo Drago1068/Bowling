@@ -1,0 +1,11 @@
+Dedicated Advanced screen (2026-09-24, APK DD98F698…, R3CY40E6FVJ).
+Data-preserving install, hash-matched, firstInstallTime preserved. Navigation
+taps only (in-memory); no games created, edited, or discarded.
+
+1. Landing Advanced chip → dedicated Advanced screen (title, lead, recovery
+   rows, adapter/startup/statuses, device ID, schema 3, pending outbox 1658
+   awaiting future sync, action buttons below). Screenshot verified.
+2. Frozen [Home] returns to landing. State left on landing, clean.
+3. App-level harness JSX removed; diagnostics render only in the panel's
+   Advanced screen from a one-way host snapshot. Loading/failure states keep
+   a fallback message.
