@@ -204,12 +204,21 @@ export function ScoringPanel(props: {
   const [standingTouched, setStandingTouched] = useState(false);
   const [draftPinfall, setDraftPinfall] = useState<number | null>(null);
 
+  /** Closed-driver guard: the driver can close mid Fast Refresh / recovery
+   * cycle. User-triggered storage work shows this notice instead of
+   * red-screening; the next driver pass re-lists. Domain rejections stay
+   * return values and are unaffected. */
+  const DB_NOT_READY_COPY = "Database not ready yet.";
   const refresh = (gameId: string | null) => {
     if (!props.driver) return;
-    setHistory(listGameHistoryDetailed(props.driver));
-    const loaded = loadScoringView(props.driver, gameId);
-    setView(loaded);
-    setSelectedGameId(loaded.gameId);
+    try {
+      setHistory(listGameHistoryDetailed(props.driver));
+      const loaded = loadScoringView(props.driver, gameId);
+      setView(loaded);
+      setSelectedGameId(loaded.gameId);
+    } catch {
+      setNotice(DB_NOT_READY_COPY);
+    }
   };
 
   useEffect(() => {
@@ -284,7 +293,15 @@ export function ScoringPanel(props: {
     setSavedAt(null);
     setGameSet(null);
     clearDraft();
-    if (props.driver) setHistory(listGameHistoryDetailed(props.driver));
+    if (props.driver) {
+      const driver = props.driver;
+      try {
+        setHistory(listGameHistoryDetailed(driver));
+      } catch {
+        setNotice(DB_NOT_READY_COPY);
+        return;
+      }
+    }
     setNotice("");
   };
 
@@ -342,19 +359,23 @@ export function ScoringPanel(props: {
 
   const startFreshGame = () => {
     if (!props.driver || !props.deviceId) return;
-    const gameId = startGame(props.driver, props.deviceId);
-    setSelectedRollId(null);
-    setFixMode(false);
-    clearDraft();
-    setHistoryOpen(false);
-    setHomeOpen(false);
-    setSelectedGameId(gameId);
-    setSessionReady(true);
-    setConfirmNewGame(false);
-    setSavedAt(null);
-    setGameSet(null);
-    refresh(gameId);
-    setNotice("Tap standing pins, then ✓ — or use X / G / / when legal.");
+    try {
+      const gameId = startGame(props.driver, props.deviceId);
+      setSelectedRollId(null);
+      setFixMode(false);
+      clearDraft();
+      setHistoryOpen(false);
+      setHomeOpen(false);
+      setSelectedGameId(gameId);
+      setSessionReady(true);
+      setConfirmNewGame(false);
+      setSavedAt(null);
+      setGameSet(null);
+      refresh(gameId);
+      setNotice("Tap standing pins, then ✓ — or use X / G / / when legal.");
+    } catch {
+      setNotice(DB_NOT_READY_COPY);
+    }
   };
 
   const onConfirmNewGame = () => {
@@ -378,17 +399,21 @@ export function ScoringPanel(props: {
    */
   const onSaveGame = () => {
     if (!props.driver || !view?.gameId) return;
-    const next = loadScoringView(props.driver, view.gameId);
-    setView(next);
-    setHistory(listGameHistoryDetailed(props.driver));
-    const finalTotal = next.sheet?.finalTotal ?? null;
-    setSavedAt(
-      new Date().toLocaleTimeString(undefined, {
-        hour: "numeric",
-        minute: "2-digit",
-      }),
-    );
-    setNotice(completedSaveNotice(finalTotal));
+    try {
+      const next = loadScoringView(props.driver, view.gameId);
+      setView(next);
+      setHistory(listGameHistoryDetailed(props.driver));
+      const finalTotal = next.sheet?.finalTotal ?? null;
+      setSavedAt(
+        new Date().toLocaleTimeString(undefined, {
+          hour: "numeric",
+          minute: "2-digit",
+        }),
+      );
+      setNotice(completedSaveNotice(finalTotal));
+    } catch {
+      setNotice(DB_NOT_READY_COPY);
+    }
   };
   const savedBanner =
     savedAt !== null
@@ -402,17 +427,21 @@ export function ScoringPanel(props: {
   const onDoneForDay = () => {
     if (!props.driver) return;
     const driver = props.driver;
-    const setKey = formatLocalTodayKey();
-    const summary = computeGameSetSummary(history, setKey);
-    const setViews = history
-      .filter((h) => h.dateKey === setKey && isQualifyingCompletedGame(h))
-      .map((h) => loadScoringView(driver, h.id))
-      .filter((v) => v.gameId !== null);
-    setGameSet({
-      summary,
-      focus: computeFocusAnalysis(setViews, handedness),
-    });
-    setNotice("");
+    try {
+      const setKey = formatLocalTodayKey();
+      const summary = computeGameSetSummary(history, setKey);
+      const setViews = history
+        .filter((h) => h.dateKey === setKey && isQualifyingCompletedGame(h))
+        .map((h) => loadScoringView(driver, h.id))
+        .filter((v) => v.gameId !== null);
+      setGameSet({
+        summary,
+        focus: computeFocusAnalysis(setViews, handedness),
+      });
+      setNotice("");
+    } catch {
+      setNotice(DB_NOT_READY_COPY);
+    }
   };
 
   const onRequestDiscard = (gameId: string) => {
@@ -428,43 +457,51 @@ export function ScoringPanel(props: {
 
   const onConfirmDiscard = (gameId: string) => {
     if (!props.driver || !props.deviceId) return;
-    const result = discardEmptyGame(props.driver, props.deviceId, gameId);
-    setConfirmDiscardId(null);
-    if (!result.ok) {
-      setNotice(`Could not discard: ${result.message}.`);
-      return;
+    try {
+      const result = discardEmptyGame(props.driver, props.deviceId, gameId);
+      setConfirmDiscardId(null);
+      if (!result.ok) {
+        setNotice(`Could not discard: ${result.message}.`);
+        return;
+      }
+      if (selectedGameId === gameId) {
+        setSelectedGameId(null);
+        setView(null);
+        setHomeOpen(true);
+      }
+      setHistory(listGameHistoryDetailed(props.driver));
+      setNotice("Empty game discarded. Recorded balls were not touched.");
+    } catch {
+      setNotice(DB_NOT_READY_COPY);
     }
-    if (selectedGameId === gameId) {
-      setSelectedGameId(null);
-      setView(null);
-      setHomeOpen(true);
-    }
-    setHistory(listGameHistoryDetailed(props.driver));
-    setNotice("Empty game discarded. Recorded balls were not touched.");
   };
 
   const onOpenGame = (gameId: string) => {
     if (!props.driver) return;
-    setSelectedRollId(null);
-    setFixMode(false);
-    clearDraft();
-    setHistoryOpen(false);
-    setHomeOpen(false);
-    setConfirmNewGame(false);
-    setConfirmDiscardId(null);
-    setSavedAt(null);
-    setGameSet(null);
-    setSelectedGameId(gameId);
-    const next = loadScoringView(props.driver, gameId);
-    setView(next);
-    setHistory(listGameHistoryDetailed(props.driver));
-    setNotice(
-      next.gameMissing
-        ? "This game was not found. Another game was not opened in its place."
-        : next.sheet?.status === "COMPLETED"
-          ? "Game complete — Start New Game or Done for the Day."
-          : "Tap standing pins, then ✓ — or use X / G / / when legal.",
-    );
+    try {
+      setSelectedRollId(null);
+      setFixMode(false);
+      clearDraft();
+      setHistoryOpen(false);
+      setHomeOpen(false);
+      setConfirmNewGame(false);
+      setConfirmDiscardId(null);
+      setSavedAt(null);
+      setGameSet(null);
+      setSelectedGameId(gameId);
+      const next = loadScoringView(props.driver, gameId);
+      setView(next);
+      setHistory(listGameHistoryDetailed(props.driver));
+      setNotice(
+        next.gameMissing
+          ? "This game was not found. Another game was not opened in its place."
+          : next.sheet?.status === "COMPLETED"
+            ? "Game complete — Start New Game or Done for the Day."
+            : "Tap standing pins, then ✓ — or use X / G / / when legal.",
+      );
+    } catch {
+      setNotice(DB_NOT_READY_COPY);
+    }
   };
 
   const onEnterFixMode = () => {
@@ -580,7 +617,8 @@ export function ScoringPanel(props: {
 
   const saveDelivery = (pinfall: number, standing: number[]) => {
     if (!props.driver || !props.deviceId || !view?.gameId || view.gameMissing) return;
-    if (fixMode && selectedRollId) {
+    try {
+      if (fixMode && selectedRollId) {
       const result = correctRollWithStanding(
         props.driver,
         props.deviceId,
@@ -657,6 +695,9 @@ export function ScoringPanel(props: {
     } else {
       setNotice(humanizeNextBallRejection(result.message));
     }
+    } catch {
+      setNotice(DB_NOT_READY_COPY);
+    }
   };
 
   const onImmediateStrike = () => {
@@ -691,11 +732,12 @@ export function ScoringPanel(props: {
 
   const onSaveCountOnly = () => {
     if (draftPinfall == null || !props.driver || !props.deviceId || !view?.gameId) return;
-    const slot = view.next;
-    if (!slot || !pinfallLegal(view.rolls, slot, draftPinfall)) {
-      setNotice(humanizeNextBallRejection("illegal"));
-      return;
-    }
+    try {
+      const slot = view.next;
+      if (!slot || !pinfallLegal(view.rolls, slot, draftPinfall)) {
+        setNotice(humanizeNextBallRejection("illegal"));
+        return;
+      }
     const result = recordRoll(props.driver, props.deviceId, view.gameId, draftPinfall, {
       kind: "omit",
     });
@@ -732,6 +774,9 @@ export function ScoringPanel(props: {
       setNotice(quip ? `${base} ${quip}` : base);
     } else {
       setNotice(humanizeNextBallRejection(result.message));
+    }
+    } catch {
+      setNotice(DB_NOT_READY_COPY);
     }
   };
 
@@ -814,14 +859,20 @@ export function ScoringPanel(props: {
   const focusViews = useMemo(() => {
     if (homeSection !== "analysis" || !props.driver) return [];
     const driver = props.driver;
-    return scopedHistory
-      .filter(
-        (h) =>
-          isQualifyingCompletedGame(h) &&
-          gameDateInMetricRange(h.dateKey, effectiveRange),
-      )
-      .map((h) => loadScoringView(driver, h.id))
-      .filter((v) => v.gameId !== null);
+    try {
+      return scopedHistory
+        .filter(
+          (h) =>
+            isQualifyingCompletedGame(h) &&
+            gameDateInMetricRange(h.dateKey, effectiveRange),
+        )
+        .map((h) => loadScoringView(driver, h.id))
+        .filter((v) => v.gameId !== null);
+    } catch {
+      // Closed mid-render during a driver cycle — treat as no views; the
+      // next driver pass recomputes. Never throw out of render.
+      return [];
+    }
   }, [homeSection, scopedHistory, effectiveRange, props.driver]);
   const focus = useMemo(
     () => computeFocusAnalysis(focusViews, handedness),

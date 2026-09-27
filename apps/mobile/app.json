@@ -12,7 +12,7 @@
     "android": {
       "package": "com.drago1068.bowling",
       "adaptiveIcon": {
-        "backgroundColor": "#F4F1EA",
+        "backgroundColor": "#101528",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"

@@ -197,6 +197,20 @@ export default function App() {
     onRunConformance: () => runNativeConformance(),
   };
 
+  /**
+   * Closed-driver guard for the render path: getDriver() can throw when the
+   * controller's driver closed mid cycle. Null degrades the panel to its
+   * disabled state; the next published pass re-supplies the driver.
+   */
+  const panelDriver = (() => {
+    if (screen.phase !== "ready" || !screen.result.ok) return null;
+    try {
+      return controllerRef.current.getDriver();
+    } catch {
+      return null;
+    }
+  })();
+
   return (
     <SafeAreaProvider>
     <SafeAreaView style={styles.safe}>
@@ -243,11 +257,7 @@ export default function App() {
 
           <ScoringPanel
             key={processGeneration}
-            driver={
-              screen.phase === "ready" && screen.result.ok
-                ? controllerRef.current.getDriver()
-                : null
-            }
+            driver={panelDriver}
             deviceId={
               screen.phase === "ready" && screen.result.ok
                 ? screen.result.device.device_id
