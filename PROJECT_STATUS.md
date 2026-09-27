@@ -15,8 +15,8 @@ REVIEWED_SOURCE_TREE=38095255d1d596f5a39f71768d77660c0ad4fa1d
 REMEDIATION_HEAD=c04d46930b9644a05505615170892754830a0572
 REMEDIATION_TREE=69f005eff08c8991bbc539e4c27c1a8c84b803b9
 SLICE_4_NATIVE_ACCEPTANCE=d55743ea0bbcfae28755cd2d19bc6d44eecf39de
-CURRENT_HEAD=bfcd380dc9f844a57ea79acbc8b74a8007fac596
-CURRENT_TREE=e57ed279ab6b541885b6c018add3f9a21821a622
+CURRENT_HEAD=f5820e4c5e3589f0eb8cdaba8115fad4f3778ee3
+CURRENT_TREE=c340f79faa27cfcbb49a1b176f5dea0eaaba576b
 B1_ACCEPTED_COMMIT=d8256794eefdf877f3c847b25f204ec38dc3f9b5
 B1_ACCEPTED_TREE=0188acfc45befaed9a05cf18a419fc6951bbc0e4
 B1_LOCAL_INTEGRATION_FF_TIP=9305a46707fe5c234b0901eda9e46c14114ea571
@@ -75,6 +75,13 @@ HANDICAP_STORAGE=LOCAL_APP_SETTINGS_TABLE_NOT_SYNCED
 MOBILE_NATIVE_DEPS_ADDED=SKIA_REANIMATED_SAFE_AREA_CONTEXT_WORKLETS_DEVICE_VERIFIED
 CLOSED_DRIVER_EFFECT_HARDENING=IMPLEMENTED_DEVICE_VERIFIED_COMMITTED
 PRESENTATION_ROUNDS_GATES_2026_09_26=ROOT_232_232_PASS_BOTH_TYPECHECKS_PASS
+UX_APP_ICON_BOWLING=IMPLEMENTED_DEVICE_VERIFIED_COMMITTED
+CLOSED_DRIVER_ALL_ACTIONS_HARDENING=IMPLEMENTED_DEVICE_VERIFIED_COMMITTED
+DEVICE_DATA_RESET_2026_09_26=PM_CLEAR_PREWIPE_72_GAMES_WIPED_ZERO_BASELINE
+TRIAL_APK_RELEASE=SHA256_713F46C5_VERSIONCODE_1_VERSIONNAME_0_1_0_TRIAL_KEY_SIGNED_DEVICE_VERIFIED
+TRIAL_KEYSTORE_LOCATION=USER_HOME_DOT_KEYSTORES_BOWLING_TRIAL_JKS_PASSWORD_IN_SIBLING_PW_FILE
+HANDICAP_REENTERED_POST_WIPE=BASIS_210_PCT_95_COLD_RESTART_PERSISTED
+WRAPUP_GATES_2026_09_26_LATE=ROOT_232_232_PASS_BOTH_TYPECHECKS_PASS
 B1_SEQUENTIAL_ENTRY_REMEDIATION=PASS_FOCUSED_TESTS
 B1_UPDATED_APK_DEVICE_VERIFICATION=PASS
 USER_PIN_SELECTOR_ACCEPTANCE=ACCEPTED_DEVICE_VERIFIED
@@ -215,7 +222,7 @@ OPEN_P0=0_OBSERVED_AFTER_LIFECYCLE_FIX_NATIVE_CAUSE_UNCONFIRMED
 OPEN_P1=0
 OPEN_P2=0
 CURRENT_BLOCKERS=NONE
-NEXT_ACTION=USER_REVIEW_OF_COMMITTED_PRESENTATION_AND_ANALYSIS
+NEXT_ACTION=USER_TRIAL_FEEDBACK_OR_NEXT_AUTHORIZED_ROUND
 NEXT_AGENT=ChatGPT_ARCHITECTURE_AND_RELEASE_AUTHORITY
 LAST_UPDATED=2026-09-26_America/New_York
 SLICE_5_GAME_LABEL=LOCAL_CREATION_DATE_AND_TIME
@@ -1116,3 +1123,15 @@ STOP.
 - **Automated**: root **232/232 PASS** (new `CUSTOM_PERIOD` + `HANDICAP_SETTINGS` round-trip tests), `typecheck` PASS, `typecheck:mobile` PASS. Server tests not rerun (no server change).
 - **Device**: Samsung `R3CY40E6FVJ`, Metro debug build. Verified Custom chips, last-7/30-day quick ranges, invalid-date validation messages, trend granularity by span, info toggles, user-entered handicap (Basis 210 / Percentage 95) persisted across cold restart, Week `hcp -30.5`, All time `hcp 13.8`.
 - **Result**: `COMMITTED_LOCAL`. `OVERALL_ACCEPTANCE` unchanged. `FIELD_VALIDATION=PAUSED`. `USER_ACCEPTANCE_OF_SESSION_ROUNDS=PENDING`.
+
+### Icon, data reset, hardening, and trial APK (this package; committed)
+
+- **Work package**: `BOWLING_ICON_RESET_HARDEN_TRIAL_APK`.
+- **Commit**: `f5820e4c5e3589f0eb8cdaba8115fad4f3778ee3` (tree `c340f79faa27cfcbb49a1b176f5dea0eaaba576b`) on `arch/001-domain-sync-foundation`, parent `486ccc9`. This status update follows in a `docs:` commit. No push, tag, or release.
+- **User decisions carried out**: handicap stays 1-decimal (no change); all games deleted for a real-games baseline; remaining actions hardened as needed; Expo-default app icon replaced with a bowling ball + pin on lane-night navy (icon, adaptive foreground/background/monochrome, favicon, splash; adaptive `backgroundColor` `#101528`); Apple path declined, Android APK only.
+- **Data reset**: pre-wipe device DB pulled and audited — 72 active games, 720 frames, 634 rolls, 225 pin states, 1875 outbox rows pending — then `pm clear` (SQLite dir confirmed gone). No in-app delete-all feature was added; the domain rule (recorded balls are never deleted through the app) stands.
+- **Hardening (#4, all remaining driver touch-points)**: `refresh`, `onGoHome`, `startFreshGame`, `onSaveGame`, `onDoneForDay`, `onConfirmDiscard`, `onOpenGame`, `saveDelivery`, `onSaveCountOnly`, the Analysis `focusViews` render-path memo (returns `[]` instead of throwing out of render), and a `panelDriver` guard in `App.tsx`. All degrade to "Database not ready yet." Domain rejections remain return values.
+- **Trial APK**: `apps/mobile/android/app/build/outputs/apk/release/app-release.apk` (137,250,869 bytes), SHA-256 `713F46C5DB50FA517DEB1ED1BAF2490FBDC283953BD0EDCFBE47190008DBD9A8`, `versionCode 1` / `versionName 0.1.0`, signed by dedicated trial key `CN=Bowling Trial` (cert SHA-256 `df2f62c1…2b23283`). Keystore `C:\Users\Drago\.keystores\bowling-trial.jks` (password in sibling `.pw` file) — required for all future trial updates. APK is a build artifact, intentionally untracked (android/ is gitignored). Copy pushed to device `Download/Bowling-trial-v0.1.0.apk`.
+- **Device (release build, Samsung `R3CY40E6FVJ`)**: standalone launch (no Metro), Home renders, History "No games yet.", Analysis "No completed games in this range yet.", handicap 210/95 re-entered with "Saved." and persisted across force-stop cold restart, lifecycle `probe_ok,init_ok,published`. No test games were recorded (baseline stays zero).
+- **Automated**: root **232/232 PASS**, `typecheck` PASS, `typecheck:mobile` PASS (post-change tree).
+- **Result**: `COMMITTED_LOCAL`. Launcher name unchanged (`Bowling ARCH-001 Diagnostic`) — rename pending user word. `OVERALL_ACCEPTANCE` unchanged. `FIELD_VALIDATION=PAUSED` (external trial feedback now possible).
