@@ -1,6 +1,6 @@
 $ErrorActionPreference = "Continue"
 $Serial = "R3CY40E6FVJ"
-$EvidenceDir = "C:\Users\Drago\Documents\Bowling\docs\evidence"
+$EvidenceDir = "G:\Dev\standalone\bowling\docs\evidence"
 $UiPath = Join-Path $EvidenceDir "b1-device-ui-current.xml"
 $LogPath = Join-Path $EvidenceDir "b1-device-observations.txt"
 $obs = [System.Collections.Generic.List[string]]::new()

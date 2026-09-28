@@ -6,7 +6,7 @@ This is the single authoritative repository status record.
 PROJECT_NAME=Bowling
 PRODUCT_CLASS=STANDALONE_PRODUCT
 CANONICAL_REPOSITORY=Drago1068/Bowling
-CANONICAL_LOCAL_PATH=C:\Users\Drago\Documents\Bowling
+CANONICAL_LOCAL_PATH=G:\Dev\standalone\bowling
 REMOTE_ORIGIN=https://github.com/Drago1068/Bowling.git
 DEFAULT_BRANCH=arch/001-domain-sync-foundation
 CURRENT_BRANCH=arch/001-domain-sync-foundation

@@ -1,6 +1,6 @@
 ﻿# B1 updated APK device verification — scroll-aware, new games only
 param([string]$Serial = "R3CY40E6FVJ")
-$EvidenceDir = "C:\Users\Drago\Documents\Bowling\docs\evidence"
+$EvidenceDir = "G:\Dev\standalone\bowling\docs\evidence"
 $ErrorActionPreference = "Continue"
 . (Join-Path $EvidenceDir "b1-device-helpers.ps1") -Serial $Serial -EvidenceDir $EvidenceDir
 

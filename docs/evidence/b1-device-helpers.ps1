@@ -1,7 +1,7 @@
 # B1 device UI helpers for adb/uiautomator
 param(
   [Parameter(Mandatory=$true)][string]$Serial,
-  [string]$EvidenceDir = "C:\Users\Drago\Documents\Bowling\docs\evidence"
+  [string]$EvidenceDir = "G:\Dev\standalone\bowling\docs\evidence"
 )
 
 $ErrorActionPreference = "Stop"
