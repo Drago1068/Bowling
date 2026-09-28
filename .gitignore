@@ -1,4 +1,7 @@
 node_modules/
+node_modules.incomplete/
+node_modules.failed-*/
+artifacts/
 *.log
 .DS_Store
 dist/
